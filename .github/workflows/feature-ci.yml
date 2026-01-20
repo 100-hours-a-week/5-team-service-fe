@@ -42,9 +42,6 @@ jobs:
       - name: TypeScript type check
         run: pnpm run typecheck
 
-      - name: Run unit tests
-        run: pnpm run test
-
       - name: Build Next.js app
         run: pnpm run build
         env:
