@@ -15,7 +15,7 @@ jobs:
         run: |
           # 1. 리뷰어로 지정된 사람의 GitHub 아이디 가져오기
           REQUESTED_GITHUB_USER="${{ github.event.requested_team.name || github.event.requested_reviewer.login }}"
-          
+
           # 2. GitHub 아이디를 Discord 멘션으로 변환 (매핑 로직)
           case "$REQUESTED_GITHUB_USER" in
             "jiyeonyooo")
@@ -26,7 +26,7 @@ jobs:
               MENTION="@FETeam (리뷰어 매핑 필요)"
               ;;
           esac
-          
+
           # 3. 메시지 전송
           PR_TITLE="${{ github.event.pull_request.title }}"
           PR_URL="${{ github.event.pull_request.html_url }}"
