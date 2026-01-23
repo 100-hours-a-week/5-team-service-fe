@@ -2,12 +2,12 @@ name: Static Analysis (Node.js)
 
 on:
   pull_request:
-    branches: [ develop, main ]
+    branches: [develop, main]
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: '0 9 * * 1'  # 매주 월요일 09:00 UTC (CodeQL 정기 스캔)
+    - cron: "0 9 * * 1" # 매주 월요일 09:00 UTC (CodeQL 정기 스캔)
 
 permissions:
   contents: read
@@ -63,8 +63,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

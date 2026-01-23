@@ -12,9 +12,9 @@ queries:
 paths-ignore:
   - .next
   - node_modules
-  - '**/test/**'
-  - '**/tests/**'
-  - '**/*.test.ts'
-  - '**/*.test.tsx'
-  - '**/*.spec.ts'
-  - '**/*.spec.tsx'
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
