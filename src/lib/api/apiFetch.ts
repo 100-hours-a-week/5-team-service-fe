@@ -1,15 +1,18 @@
 import { authStore } from "@/stores/authStore";
 import { ApiResponse } from "./types";
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}) {
+type ApiFetchOptions = RequestInit & { timeoutMs?: number };
+
+export async function apiFetch<T>(path: string, init: ApiFetchOptions = {}) {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL;
   if (!base) {
     throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
   }
 
-  const url = new URL(path, base).toString();
+  const url = `${base}${path}`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutMs = init.timeoutMs ?? 5000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const accessToken = authStore.getAccessToken();
