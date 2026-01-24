@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 html,
 body {
   height: 100%;
@@ -111,6 +109,10 @@ body {
   --color-accent-green-2: #eaf8d9;
   --color-accent-blue-1: #c7ebf8;
   --color-accent-blue-2: #e1f4fc;
+  --color-primary-purple: #5b5deb;
+  --color-primary-purple-1: #4f46e5;
+  --color-primary-purple-2: #e1ddff;
+  --color-primary-purple-3: #f4f5ff;
 }
 
 :root {
