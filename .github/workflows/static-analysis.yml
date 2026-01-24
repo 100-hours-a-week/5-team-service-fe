@@ -14,6 +14,7 @@ permissions:
   pull-requests: write
   actions: read
   security-events: write
+  checks: write
 
 concurrency:
   group: static-analysis-${{ github.ref }}

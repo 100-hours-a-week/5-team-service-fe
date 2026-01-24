@@ -5,6 +5,11 @@ version: "1.0"
 
 linter: jetbrains/qodana-js:2024.3
 
+# 의존성 설치 (ESLint 등 필요)
+bootstrap: |
+  npm install -g pnpm
+  pnpm install --frozen-lockfile
+
 profile:
   name: qodana.recommended
 
