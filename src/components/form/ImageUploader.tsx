@@ -14,8 +14,16 @@ type ImageUploaderProps = {
   fallbackText?: string;
 };
 
-export default function ImageUploader({ urlName, fileName, label = "프로필 이미지" }: ImageUploaderProps) {
-  const { setValue, watch, formState: { errors } } = useFormContext();
+export default function ImageUploader({
+  urlName,
+  fileName,
+  label = "프로필 이미지",
+}: ImageUploaderProps) {
+  const {
+    setValue,
+    watch,
+    formState: { errors },
+  } = useFormContext();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const profileImagePath = (watch(urlName) as string | undefined) ?? "";
