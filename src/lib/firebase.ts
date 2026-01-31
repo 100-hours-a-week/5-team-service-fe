@@ -24,14 +24,25 @@ function getApp() {
   return getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 }
 
-export async function initMessaging() {
+type InitMessagingOptions = {
+  requestPermission?: boolean;
+  swPath?: string;
+};
+
+export async function initMessaging(options: InitMessagingOptions = {}) {
+  const { requestPermission = false, swPath = "/firebase-messaging-sw.js" } = options;
+
   const supported = await isSupported();
   if (!supported) return null;
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return null;
+  if (requestPermission) {
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return null;
+  } else {
+    if (Notification.permission !== "granted") return null;
+  }
 
-  const swReg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+  const swReg = await navigator.serviceWorker.register(swPath);
 
   const app = getApp();
   const messaging = getMessaging(app);
@@ -49,7 +60,7 @@ export function listenForeground(messaging: Messaging, handler: (payload: Messag
 
   return onMessage(messaging, (payload) => {
     const title = payload?.notification?.title ?? "새 알림";
-    const body = payload?.notification?.body ?? "";
+    const body = payload?.notification?.body ?? "독토리에서 온 알림을 확인해보세요!";
 
     if (Notification.permission === "granted") {
       const n = new Notification(title, {

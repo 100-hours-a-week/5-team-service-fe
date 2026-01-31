@@ -15,6 +15,7 @@ export default function FCMProvider(): null {
 
   const unsubscribeRef = useRef<Unsubscribe | null>(null);
   const lastSentTokenRef = useRef<string | null>(null);
+  const inFlightRef = useRef(false);
   const storageKeyRef = useRef("fcm:pushToken");
 
   const readStoredToken = () => {
@@ -35,29 +36,45 @@ export default function FCMProvider(): null {
     }
   };
 
+  const cleanupListener = () => {
+   unsubscribeRef.current?.();
+   unsubscribeRef.current = null;
+  }
+
   useEffect(() => {
     if (!initialized) return;
 
     if (!accessToken) {
-      unsubscribeRef.current?.();
-      unsubscribeRef.current = null;
+      cleanupListener();
       return;
     }
 
     let cancelled = false;
 
-    const run = async () => {
+    const canUsePush = () => typeof window !== "undefined" && Notification.permission === "granted";
+
+    const registerIfPossible = async () => {
+      if(cancelled) return;
+      if(!canUsePush()) {
+         cleanupListener();
+         return;
+      }
+
+      if(inFlightRef.current) return;
+      inFlightRef.current = true;
+
       try {
         if (lastSentTokenRef.current === null) {
           lastSentTokenRef.current = readStoredToken();
         }
 
-        const res = await initMessaging();
-        if (!res || cancelled) return;
+        const response = await initMessaging({ requestPermission: false });
+        if (!response || cancelled) return;
 
-        const { messaging, token } = res;
+        const { messaging, token } = response;
+        console.log('FCM token: ', token);
 
-        if (lastSentTokenRef.current !== token) {
+        if (token && lastSentTokenRef.current !== token) {
           await apiFetch("/notifications/push-token", {
             method: "POST",
             body: JSON.stringify({ token, platform: "WEB" }),
@@ -68,20 +85,34 @@ export default function FCMProvider(): null {
 
         if (cancelled) return;
 
+        cleanupListener();
         unsubscribeRef.current = listenForeground(messaging, (payload: MessagePayload) => {
           console.log("foreground push:", payload);
         });
       } catch (e) {
         console.error("[FCMProvider] init/register failed:", e);
+      } finally {
+         inFlightRef.current = false;
       }
     };
 
-    void run();
+    void registerIfPossible();
+
+    const onFocus = () => void registerIfPossible();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void registerIfPossible();
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
 
     return () => {
       cancelled = true;
-      unsubscribeRef.current?.();
-      unsubscribeRef.current = null;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      cleanupListener();
+      inFlightRef.current = false;
     };
   }, [initialized, accessToken]);
 
