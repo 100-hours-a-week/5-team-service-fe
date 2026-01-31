@@ -124,7 +124,7 @@ export default function RequiredInfo({ onSubmit }: { onSubmit: () => void }) {
         type="button"
         disabled={!isComplete}
         onClick={() => {
-          sessionStorage.setItem("onboarding:alarmAgreement", notificationAgreement ? "1": "0");
+          sessionStorage.setItem("onboarding:alarmAgreement", notificationAgreement ? "1" : "0");
           onSubmit();
         }}
         className={`mt-auto mb-5 flex w-full items-center justify-center rounded-full py-4 text-body-1 !font-[700] text-white transition ${

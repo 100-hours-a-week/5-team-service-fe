@@ -37,9 +37,9 @@ export default function FCMProvider(): null {
   };
 
   const cleanupListener = () => {
-   unsubscribeRef.current?.();
-   unsubscribeRef.current = null;
-  }
+    unsubscribeRef.current?.();
+    unsubscribeRef.current = null;
+  };
 
   useEffect(() => {
     if (!initialized) return;
@@ -54,13 +54,13 @@ export default function FCMProvider(): null {
     const canUsePush = () => typeof window !== "undefined" && Notification.permission === "granted";
 
     const registerIfPossible = async () => {
-      if(cancelled) return;
-      if(!canUsePush()) {
-         cleanupListener();
-         return;
+      if (cancelled) return;
+      if (!canUsePush()) {
+        cleanupListener();
+        return;
       }
 
-      if(inFlightRef.current) return;
+      if (inFlightRef.current) return;
       inFlightRef.current = true;
 
       try {
@@ -72,7 +72,7 @@ export default function FCMProvider(): null {
         if (!response || cancelled) return;
 
         const { messaging, token } = response;
-        console.log('FCM token: ', token);
+        console.log("FCM token: ", token);
 
         if (token && lastSentTokenRef.current !== token) {
           await apiFetch("/notifications/push-token", {
@@ -92,7 +92,7 @@ export default function FCMProvider(): null {
       } catch (e) {
         console.error("[FCMProvider] init/register failed:", e);
       } finally {
-         inFlightRef.current = false;
+        inFlightRef.current = false;
       }
     };
 
@@ -105,7 +105,6 @@ export default function FCMProvider(): null {
 
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
-
 
     return () => {
       cancelled = true;

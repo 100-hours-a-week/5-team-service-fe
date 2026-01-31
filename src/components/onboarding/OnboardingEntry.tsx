@@ -18,13 +18,12 @@ export default function OnboardingEntry() {
   useEffect(() => {
     const alarmAgreement = sessionStorage.getItem("onabording:alarmAgreement");
     sessionStorage.removeItem("onabording:alarmAgreement");
-    
-    if(alarmAgreement === "0") return;
+
+    if (alarmAgreement === "0") return;
     if (typeof Notification === "undefined") return;
     if (Notification.permission !== "default") return;
 
     void Notification.requestPermission().catch(() => {});
-
   }, []);
 
   const nickname = data?.nickname ?? "회원";
