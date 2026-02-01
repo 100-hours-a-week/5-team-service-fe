@@ -15,7 +15,6 @@ import { apiFetch } from "@/lib/api/apiFetch";
 import { ProfileData } from "../onboarding/types";
 
 export default function MeetingCreateFormProvider({ children }: { children: React.ReactNode }) {
-  
   const { data: profile } = useQuery({
     queryKey: ["profile"],
     queryFn: async () => {
@@ -23,7 +22,7 @@ export default function MeetingCreateFormProvider({ children }: { children: Reac
       return profile;
     },
   });
-  
+
   const initialValues = useMemo(() => {
     const stored = useMeetingCreateStore.getState();
     return {
