@@ -93,6 +93,7 @@ export default function MeetingCreateStep1() {
         label="모임명"
         placeholder="모임명을 입력해주세요."
         helperText="최대 50자까지 입력 가능합니다."
+        maxLength={50}
       />
 
       <RadioGroup<CreateMeetingFormValues>

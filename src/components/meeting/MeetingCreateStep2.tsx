@@ -157,6 +157,8 @@ export default function MeetingCreateStep2() {
           <input
             type="time"
             value={time.endTime}
+            readOnly
+            tabIndex={-1}
             onChange={(e) =>
               setValue("time", { ...time, endTime: e.target.value }, { shouldDirty: true })
             }
