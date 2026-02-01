@@ -16,7 +16,7 @@ export default function DateInputField<T extends FieldValues>({
   helperText,
   errorMessage,
 }: DateInputFieldProps<T>) {
-  const { control } = useFormContext<T>();
+  const { control, trigger } = useFormContext<T>();
 
   return (
     <div className="flex flex-col gap-4">
@@ -31,7 +31,10 @@ export default function DateInputField<T extends FieldValues>({
           <input
             type="date"
             value={field.value ?? ""}
-            onChange={(e) => field.onChange(e.target.value)}
+            onChange={(e) => {
+              field.onChange(e.target.value);
+              void trigger(name);
+            }}
             className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm"
           />
         )}
