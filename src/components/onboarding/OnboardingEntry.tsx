@@ -4,6 +4,7 @@ import { ProfileData } from "@/components/onboarding/types";
 import { apiFetch } from "@/lib/api/apiFetch";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
+import { useEffect } from "react";
 
 export default function OnboardingEntry() {
   const { data } = useQuery({
@@ -13,6 +14,17 @@ export default function OnboardingEntry() {
       return profile;
     },
   });
+
+  useEffect(() => {
+    const alarmAgreement = sessionStorage.getItem("onabording:alarmAgreement");
+    sessionStorage.removeItem("onabording:alarmAgreement");
+
+    if (alarmAgreement === "0") return;
+    if (typeof Notification === "undefined") return;
+    if (Notification.permission !== "default") return;
+
+    void Notification.requestPermission().catch(() => {});
+  }, []);
 
   const nickname = data?.nickname ?? "회원";
 
