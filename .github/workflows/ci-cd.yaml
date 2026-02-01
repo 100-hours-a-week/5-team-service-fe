@@ -203,7 +203,7 @@ jobs:
         with:
           host: ${{ steps.env.outputs.ssh_host }}
           username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ steps.env.outputs.env_name == 'prod' && secrets.EC2_SSH_KEY || secrets.DEV_EC2_SSH_KEY }}          
+          key: ${{ steps.env.outputs.env_name == 'prod' && secrets.EC2_SSH_KEY || secrets.DEV_EC2_SSH_KEY }}
           script: bash /home/ubuntu/app/deploy.sh fe ${{ steps.env.outputs.env_name }}
 
       # --- [4-a] DEV(EC2): 보안 그룹에서 IP 제거 (항상 실행) ---
