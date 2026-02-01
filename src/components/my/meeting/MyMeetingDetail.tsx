@@ -78,6 +78,7 @@ export default function MyMeetingDetail() {
   const reportStatusKey = activeRound.bookReport.status ?? "NOT_SUBMITTED";
   const reportStatusLabel: Record<string, string> = {
     NOT_SUBMITTED: "미제출",
+    PENDING_REVIEW: "승인 대기",
     SUBMITTED: "제출됨",
     APPROVED: "승인됨",
     REJECTED: "반려됨",
@@ -85,6 +86,7 @@ export default function MyMeetingDetail() {
 
   const reportStatusClass: Record<string, string> = {
     NOT_SUBMITTED: "bg-gray-200 text-gray-600",
+    PENDING_REVIEW: "bg-gray-200 text-gray-600",
     SUBMITTED: "bg-orange-100 text-orange-600",
     APPROVED: "bg-green-100 text-green-600",
     REJECTED: "bg-red-100 text-red-600",
@@ -92,6 +94,7 @@ export default function MyMeetingDetail() {
 
   const reportActionLabel: Record<string, string> = {
     NOT_SUBMITTED: "독후감 제출하기",
+    PENDING_REVIEW: "독후감 검증 중",
     SUBMITTED: "독후감 확인하기",
     APPROVED: "독후감 확인하기",
     REJECTED: "독후감 반려 사유 확인하기",

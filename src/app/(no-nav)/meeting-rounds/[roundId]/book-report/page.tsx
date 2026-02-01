@@ -42,6 +42,8 @@ export default function BookReportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDraftOpen, setIsDraftOpen] = useState(false);
   const [isDraftClosing, setIsDraftClosing] = useState(false);
+  const [isLimitOpen, setIsLimitOpen] = useState(false);
+  const [isLimitClosing, setIsLimitClosing] = useState(false);
 
   const storageKey = useMemo(() => (roundId ? `bookReport:draft:${roundId}` : null), [roundId]);
   const MIN_LENGTH = 400;
@@ -99,6 +101,16 @@ export default function BookReportPage() {
       }
       router.back();
     } catch (error) {
+      const errorCode = (error as { code?: string }).code;
+      const errorText = (error as { message?: string }).message ?? "";
+      if (
+        errorCode === "BOOK_REPORT_DAILY_LIMIT_EXCEEDED" ||
+        errorCode === "DAILY_LIMIT_EXCEEDED" ||
+        errorText.includes("일일")
+      ) {
+        setIsLimitOpen(true);
+        return;
+      }
       console.log(error);
     } finally {
       setIsSubmitting(false);
@@ -228,6 +240,28 @@ export default function BookReportPage() {
           window.setTimeout(() => {
             setIsDraftClosing(false);
             setIsDraftOpen(false);
+          }, 200);
+        }}
+      />
+      <WarningConfirmModal
+        isOpen={isLimitOpen}
+        isClosing={isLimitClosing}
+        title="일일 최대 제출 횟수를 초과했어요"
+        description="내일 다시 제출해주세요."
+        confirmLabel="확인"
+        cancelLabel="닫기"
+        onClose={() => {
+          setIsLimitClosing(true);
+          window.setTimeout(() => {
+            setIsLimitClosing(false);
+            setIsLimitOpen(false);
+          }, 200);
+        }}
+        onConfirm={() => {
+          setIsLimitClosing(true);
+          window.setTimeout(() => {
+            setIsLimitClosing(false);
+            setIsLimitOpen(false);
           }, 200);
         }}
       />
