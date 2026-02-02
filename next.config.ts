@@ -21,17 +21,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "doktori-dev-images.s3.ap-northeast-2.amazonaws.com",
-        pathname: "/images/meetings/**",
+        pathname: "/images/**",
       },
       {
         protocol: "https",
-        hostname: "doktori-dev-images.s3.ap-northeast-2.amazonaws.com",
-        pathname: "/images/profiles/**",
-      },
-      {
-        protocol: "https",
-        hostname: "cdn.example.com",
-        pathname: "/meetings/**",
+        hostname: "doktori-prod-images.s3.ap-northeast-2.amazonaws.com",
+        pathname: "/images/**",
       },
     ],
   },
