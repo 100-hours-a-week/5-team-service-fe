@@ -35,7 +35,8 @@ export default function OnboardingEntry() {
           반가워요 {nickname}님!
         </h1>
         <p className="text-body-1 text-gray-800">
-          <span className="!font-[600]">독토리</span> 주민이 되신 것을 환영합니다!
+          <span className="!font-[600] text-primary-purple">독토리</span> 주민이 되신 것을
+          환영합니다!
         </p>
       </div>
 
@@ -52,13 +53,13 @@ export default function OnboardingEntry() {
             {nickname}님과 딱 맞는 모임을 추천해드려요.
           </p>
         </div>
-        <div className="mt-12 w-full max-w-[280px]">
+        <div className="mt-12 w-full max-w-[360px]">
           <Image
             src="/chracter.png"
             alt="독토리 캐릭터"
-            width={560}
-            height={560}
-            className="h-auto w-full object-contain"
+            width={900}
+            height={900}
+            className="h-auto w-full object-contain floaty"
             priority
           />
         </div>
