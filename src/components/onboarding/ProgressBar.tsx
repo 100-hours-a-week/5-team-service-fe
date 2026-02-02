@@ -16,7 +16,7 @@ export default function ProgressBar({ currentStep, totalStep }: ProgressBarProps
         return (
           <div key={step} className="h-1 w-full overflow-hidden rounded-full bg-gray-200">
             <div
-              className={`h-full rounded-full bg-[#5B5DEB] transition-[width] duration-500 ease-out ${
+              className={`h-full rounded-full bg-primary-purple transition-[width] duration-500 ease-out ${
                 isFilled ? "w-full" : "w-0"
               }`}
             />

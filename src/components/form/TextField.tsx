@@ -34,7 +34,7 @@ export default function TextField({
         {...register(name)}
         placeholder={placeholder}
         maxLength={maxLength}
-        className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition-colors duration-200 focus:border-[var(--color-primary-purple)]"
+        className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 outline-none transition-colors duration-200 focus:border-primary-purple"
       />
       {errorMessage ? <p className="text-xs text-red-500">{errorMessage}</p> : null}
     </div>
