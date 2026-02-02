@@ -83,7 +83,7 @@ export default function OnboardingShell({ children }: { children: React.ReactNod
   const onNext = () => {
     if (isLastStep) {
       const payload: Record<string, number | number[] | null> = {
-        userReadingGenreIds: answers[1],
+        readingGenreIds: answers[1],
         readingVolumeId: answers[2],
         readingPurposeIds: answers[3],
       };
@@ -119,7 +119,7 @@ export default function OnboardingShell({ children }: { children: React.ReactNod
     const payload: Record<string, number | number[] | null> = {};
 
     if (currentStep >= 2) {
-      payload.userReadingGenreIds = answers[1];
+      payload.readingGenreIds = answers[1];
     }
     if (currentStep >= 3 && answers[2] !== null) {
       payload.readingVolumeId = answers[2];
