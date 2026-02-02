@@ -56,8 +56,6 @@ export async function initMessaging(options: InitMessagingOptions = {}) {
 }
 
 export function listenForeground(messaging: Messaging, handler: (payload: MessagePayload) => void) {
-  console.log("Foreground listener attached");
-
   return onMessage(messaging, (payload) => {
     const title = payload?.notification?.title ?? "새 알림";
     const body = payload?.notification?.body ?? "독토리에서 온 알림을 확인해보세요!";
@@ -75,8 +73,6 @@ export function listenForeground(messaging: Messaging, handler: (payload: Messag
         n.close();
       };
     }
-
-    console.log("foreground push:", payload);
     handler(payload);
   });
 }
