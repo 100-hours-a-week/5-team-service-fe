@@ -6,7 +6,7 @@ import localFont from "next/font/local";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 
 export const metadata: Metadata = {
-  title: "독토리 - 독서토론마을",
+  title: "DOKTORI 독토리",
 };
 
 export const viewport = {
