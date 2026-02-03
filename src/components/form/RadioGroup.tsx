@@ -59,7 +59,7 @@ export default function RadioGroup<T extends FieldValues>({
                               ? "border-transparent bg-[var(--color-primary-purple)] text-white"
                               : "border-gray-300 text-gray-700"
                           }`
-                        : `cursor-pointer rounded-full border px-5 py-3 text-body-1 !font-[600] transition ${
+                        : `cursor-pointer rounded-full border px-5 py-2 my-1 text-body-1 !font-[500] transition ${
                             checked
                               ? "border-transparent bg-primary-purple text-white shadow-[0_6px_16px_rgba(91,93,235,0.35)]"
                               : "border-gray-300 bg-white text-gray-900"
