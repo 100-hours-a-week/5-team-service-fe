@@ -1,32 +1,78 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import KakaoLoginButton from "@/components/login/KakaoLoginButton";
 
 export default function Page() {
+  const slides = useMemo(
+    () => [
+      {
+        id: 1,
+        image: "/chracter_book.png",
+        title: "정해진 일정에 맞춰 함께 읽어요",
+        description:
+          "읽고 싶은 책으로 모임에 참여해요.\n토론 전까지 함께 읽으며 자연스럽게 루틴을 만들어요.",
+      },
+      {
+        id: 2,
+        image: "/chracter_alone.png",
+        title: "나에게 맞는 모임을 AI가 추천해요",
+        description: "나의 관심사와 행동을 기반으로\nAI가 맞춤형 독서 모임을 추천해줘요.",
+      },
+      {
+        id: 3,
+        image: "/chracter.png",
+        title: "온라인에서 부담 없이 토론해요",
+        description:
+          "시간과 공간의 제약 없이\n원하는 시간에, 원하는 장소에서 책에 대해 이야기해요.",
+      },
+    ],
+    [],
+  );
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setActiveIndex((prev) => (prev + 1) % slides.length);
+    }, 3000);
+
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 text-center">
-      <div className="relative z-10 max-w-xs">
-        <div className="flex flex-col items-center">
-          <div className="flex flex-row items-center justify-center gap-5">
-            <h1 className="mt-4 text-title-1 !text-[40px] text-gray-900">책으로</h1>
-            <img src="/book.png" alt="book" className="mx-auto w-18" />
-          </div>
-          <div className="flex flex-row items-center justify-center gap-5">
-            <img src="/chat.png" alt="chat" className="mx-auto mt-6 w-20" />
-            <h1 className="mt-4 text-title-1 !text-[40px] text-gray-900">모이는</h1>
-          </div>
-          <div className="flex flex-row items-center justify-center gap-5">
-            <h1 className="mt-4 text-title-1 !text-[40px]  text-gray-900">마을</h1>
-            <img src="/home.png" alt="home" className="mx-auto mt-6 w-24" />
-          </div>
+    <div className="relative flex min-h-dvh flex-col items-center justify-center px-6 py-10 text-center">
+      <h2 className="text-lg font-bold text-gray-900">DOKTORI</h2>
+      <div key={slides[activeIndex].id} className="mt-10 px-8 py-10 animate-fade-in-up">
+        <div className="mx-auto flex h-72 w-full items-center justify-center">
+          <Image
+            src={slides[activeIndex].image}
+            alt={slides[activeIndex].title}
+            width={720}
+            height={720}
+            className="h-auto w-[280px] object-contain"
+            priority={slides[activeIndex].id === 1}
+          />
         </div>
 
-        <p className="mt-15 text-subheading !text-[18px] !font-[400] text-gray-900">
-          <span className="!font-[600]">독토리</span>에서 시간과 거리 상관없이
-          <br />
-          오늘의 책 이야기를 시작해요!
+        <h2 className="mt-4 text-lg font-semibold text-gray-900">{slides[activeIndex].title}</h2>
+        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">
+          {slides[activeIndex].description}
         </p>
-      </div>
 
-      <div className="relative z-10 mt-30 w-full max-w-sm">
+        <div className="mt-30 flex items-center justify-center gap-2">
+          {slides.map((dot, index) => (
+            <span
+              key={dot.id}
+              className={`h-2 w-2 rounded-full ${
+                index === activeIndex ? "bg-primary-purple" : "bg-gray-300"
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="mt-8 px-10 w-full">
         <KakaoLoginButton />
       </div>
     </div>

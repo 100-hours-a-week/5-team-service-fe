@@ -38,7 +38,7 @@ export function MeetingItem({
             className="object-cover"
           />
         </div>
-        <span className="absolute left-3 top-3 rounded-full bg-primary-purple px-2.5 py-1 text-xs font-medium text-white">
+        <span className="absolute left-1 top-1 rounded-full bg-primary-purple px-2.5 py-1 text-xs font-medium text-white shadow-[0_8px_16px_rgba(91,123,255,0.22)]">
           {remainingDays < 0 ? `D+${-remainingDays}` : `D-${remainingDays}`}
         </span>
       </div>

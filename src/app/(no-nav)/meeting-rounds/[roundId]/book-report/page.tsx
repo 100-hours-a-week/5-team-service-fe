@@ -19,6 +19,7 @@ type BookReportResponse = {
   bookReport: {
     id: number | null;
     status:
+      | "NOT_YET_WRITABLE"
       | "NOT_SUBMITTED"
       | "DEADLINE_PASSED"
       | "PENDING_REVIEW"
@@ -140,6 +141,7 @@ export default function BookReportPage() {
   }
 
   const isLocked =
+    data.bookReport.status === "NOT_YET_WRITABLE" ||
     data.bookReport.status === "DEADLINE_PASSED" ||
     data.bookReport.status === "PENDING_REVIEW" ||
     data.bookReport.status === "SUBMITTED" ||
@@ -147,6 +149,7 @@ export default function BookReportPage() {
   const canSubmit = !isLocked && currentLength >= MIN_LENGTH && currentLength <= MAX_LENGTH;
 
   const submitLabel = {
+    NOT_YET_WRITABLE: "아직 독후감 제출 기한이 아닙니다.",
     NOT_SUBMITTED: "독후감 제출하기",
     DEADLINE_PASSED: "독후감 제출 기한이 지났습니다.",
     PENDING_REVIEW: "AI 독후감 검증 중입니다.",

@@ -42,7 +42,7 @@ export default function Question({ step }: { step: number }) {
   return (
     <div className="mt-5 space-y-12">
       <div className="flex flex-col items-center text-center">
-        <span className="rounded-full bg-[#5B5DEB] px-4 py-1 text-label text-white">
+        <span className="rounded-full bg-primary-purple px-4 py-1 text-label text-white">
           STEP {displayStep}
         </span>
         <h1 className="mt-6 text-title-1 !text-[30px] text-gray-900">{title}</h1>

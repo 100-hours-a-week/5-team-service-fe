@@ -7,11 +7,13 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { apiFetch } from "@/lib/api/apiFetch";
 import { uploadImageToS3 } from "@/lib/uploadImageToS3";
 import { CreateMeetingFormValues } from "@/components/meeting/createMeetingSchema";
+import { useMeetingCreateStore } from "@/stores/meetingCreateStore";
 
 export default function MeetingCreateStep3() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { control, getValues, setValue } = useFormContext<CreateMeetingFormValues>();
+  const resetMeetingCreate = useMeetingCreateStore((state) => state.reset);
   const rounds = useWatch({ control, name: "rounds", defaultValue: [] });
   const booksByRound = useWatch({ control, name: "booksByRound", defaultValue: [] });
 
@@ -81,6 +83,7 @@ export default function MeetingCreateStep3() {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    resetMeetingCreate();
     router.push("/");
   };
 

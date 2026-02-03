@@ -17,7 +17,8 @@ const WEEKS = ["일", "월", "화", "수", "목", "금", "토"];
 export default function MeetingCreateStep2() {
   const router = useRouter();
 
-  const { control, setValue, formState, trigger } = useFormContext<CreateMeetingFormValues>();
+  const { control, setValue, formState, trigger, setError, clearErrors } =
+    useFormContext<CreateMeetingFormValues>();
   const roundCount = useWatch({ control, name: "roundCount", defaultValue: 1 });
   const rounds = useWatch({ control, name: "rounds", defaultValue: [] });
   const time = useWatch({
@@ -53,7 +54,7 @@ export default function MeetingCreateStep2() {
     if (!firstRoundAt || meetingWeekday === null) return;
     const nextRounds = calculateRoundDates(firstRoundAt, meetingWeekday, roundCount);
     if (nextRounds.length) {
-      setValue("rounds", nextRounds, { shouldDirty: true });
+      setValue("rounds", nextRounds, { shouldDirty: true, shouldValidate: true });
     }
   }, [firstRoundAt, meetingWeekday, roundCount, setValue]);
 
@@ -79,6 +80,7 @@ export default function MeetingCreateStep2() {
   const roundsError =
     (formState.errors?.rounds as { message?: string } | undefined)?.message ||
     (formState.errors?.rounds?.[0] as { date?: { message?: string } } | undefined)?.date?.message;
+  const firstRoundAtError = formState.errors?.firstRoundAt?.message as string | undefined;
   const timeError =
     (formState.errors?.time as { message?: string; startTime?: { message?: string } } | undefined)
       ?.message ||
@@ -96,21 +98,67 @@ export default function MeetingCreateStep2() {
   } | null>(null);
 
   const handleRoundDateChange = (roundNo: number, nextDate: string) => {
+    const next = new Date(nextDate);
+    if (!Number.isNaN(next.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      next.setHours(0, 0, 0, 0);
+      if (next < today) {
+        setError("rounds", {
+          type: "manual",
+          message: "과거 날짜는 선택할 수 없습니다.",
+        });
+        return;
+      }
+    }
+
     if (meetingWeekday === null) return;
     const day = new Date(nextDate).getDay();
     if (Number.isNaN(day) || day !== meetingWeekday) {
       setWeekdayMismatchError({
         roundNo,
-        message: "선택한 요일과 일치하는 날짜만 선택할 수 있어요.",
+        message: "선택한 요일과 일치하는 날짜만 선택할 수 있습니다.",
       });
       return;
     }
+
+    const isDuplicate = rounds.some(
+      (round) => round.roundNo !== roundNo && round.date === nextDate,
+    );
+    if (isDuplicate) {
+      setError("rounds", {
+        type: "manual",
+        message: "같은 날짜는 선택할 수 없습니다.",
+      });
+      return;
+    }
+    clearErrors("rounds");
     setWeekdayMismatchError(null);
     setWeekdayMissingError(null);
-    const nextRounds = rounds.map((round) =>
-      round.roundNo === roundNo ? { ...round, date: nextDate } : round,
-    );
-    setValue("rounds", nextRounds, { shouldDirty: true });
+    const merged = rounds.map((round) => ({
+      roundNo: round.roundNo,
+      date: round.roundNo === roundNo ? nextDate : round.date,
+      book: booksByRound.find((b) => b.roundNo === round.roundNo)?.book ?? null,
+    }));
+
+    const sorted = [...merged].sort((a, b) => {
+      if (!a.date && !b.date) return a.roundNo - b.roundNo;
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date.localeCompare(b.date);
+    });
+
+    const nextRounds = sorted.map((item, index) => ({
+      roundNo: index + 1,
+      date: item.date,
+    }));
+    const nextBooksByRound = sorted.map((item, index) => ({
+      roundNo: index + 1,
+      book: item.book,
+    }));
+
+    setValue("rounds", nextRounds, { shouldDirty: true, shouldValidate: true });
+    setValue("booksByRound", nextBooksByRound, { shouldDirty: true });
     setEditingRound(null);
   };
 
@@ -165,20 +213,19 @@ export default function MeetingCreateStep2() {
             className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm"
           />
         </div>
-        {timeError ? <p className="text-xs text-red-500">{timeError}</p> : null}
+        {timeError ? <p className="text-xs text-red-500 !font-[500]">{timeError}</p> : null}
       </section>
 
       <DateInputField<CreateMeetingFormValues>
         name="firstRoundAt"
         label="시작 날짜 선택"
-        errorMessage={roundsError}
+        errorMessage={firstRoundAtError}
       />
 
       {rounds.length ? (
         <section className="flex flex-col gap-4">
           <div className="flex flex-row gap-2">
             <label className="text-base font-semibold text-gray-900">최종 모임 일정</label>
-            <p className="mt-1 text-xs text-gray-400">모임 진행은 30분으로 고정입니다.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 px-4 py-3 text-body-2 text-gray-600">
             {rounds.map((round) => (
@@ -216,6 +263,8 @@ export default function MeetingCreateStep2() {
                 </div>
                 {weekdayMismatchError?.roundNo === round.roundNo ? (
                   <p className="mt-1 text-xs text-red-500">{weekdayMismatchError.message}</p>
+                ) : roundsError && editingRound === round.roundNo ? (
+                  <p className="mt-1 text-xs text-red-500">{roundsError}</p>
                 ) : null}
               </div>
             ))}
@@ -236,7 +285,7 @@ export default function MeetingCreateStep2() {
       <button
         type="button"
         onClick={goNext}
-        className="mt-auto w-full rounded-full bg-[var(--color-primary-purple)] py-4 text-sm font-semibold text-white"
+        className="mt-auto w-full rounded-full bg-primary-purple py-4 text-sm font-semibold text-white"
       >
         다음
       </button>

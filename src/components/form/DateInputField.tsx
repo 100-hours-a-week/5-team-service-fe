@@ -39,7 +39,7 @@ export default function DateInputField<T extends FieldValues>({
           />
         )}
       />
-      {errorMessage ? <p className="text-xs text-red-500">{errorMessage}</p> : null}
+      {errorMessage ? <p className="text-xs text-red-500 !font-[500]">{errorMessage}</p> : null}
     </div>
   );
 }
