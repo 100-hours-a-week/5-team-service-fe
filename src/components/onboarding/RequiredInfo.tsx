@@ -53,7 +53,7 @@ export default function RequiredInfo({ onSubmit }: { onSubmit: () => void }) {
           pattern="[0-9]*"
           maxLength={4}
           placeholder="예: 1998"
-          className="mt-2 w-full rounded-2xl border border-gray-300 px-4 py-4 text-sm text-gray-900 outline-none focus:border-gray-900"
+          className="mt-2 w-full rounded-2xl border border-gray-300 px-4 py-4 ext-body-1 !font-[600] text-gray-900 outline-none focus:border-primary-purple"
         />
         {birthYearError ? <p className="mt-2 text-xs text-red-500">{birthYearError}</p> : null}
       </div>
@@ -76,10 +76,12 @@ export default function RequiredInfo({ onSubmit }: { onSubmit: () => void }) {
               >
                 <span
                   className={`flex size-6 items-center justify-center rounded-full border-2 ${
-                    selected ? "border-[#5B5DEB]" : "border-gray-300"
+                    selected ? "border-primary-purple" : "border-gray-300"
                   }`}
                 >
-                  {selected ? <span className="block size-3 rounded-full bg-[#5B5DEB]" /> : null}
+                  {selected ? (
+                    <span className="block size-3 rounded-full bg-primary-purple" />
+                  ) : null}
                 </span>
                 {option.label}
               </button>
@@ -108,10 +110,12 @@ export default function RequiredInfo({ onSubmit }: { onSubmit: () => void }) {
               >
                 <span
                   className={`flex size-6 items-center justify-center rounded-full border-2 ${
-                    selected ? "border-[#5B5DEB]" : "border-gray-300"
+                    selected ? "border-primary-purple" : "border-gray-300"
                   }`}
                 >
-                  {selected ? <span className="block size-3 rounded-full bg-[#5B5DEB]" /> : null}
+                  {selected ? (
+                    <span className="block size-3 rounded-full bg-primary-purple" />
+                  ) : null}
                 </span>
                 {option.label}
               </button>
@@ -128,7 +132,7 @@ export default function RequiredInfo({ onSubmit }: { onSubmit: () => void }) {
           onSubmit();
         }}
         className={`mt-auto mb-5 flex w-full items-center justify-center rounded-full py-4 text-body-1 !font-[700] text-white transition ${
-          isComplete ? "bg-[#5B5DEB]" : "bg-gray-300"
+          isComplete ? "bg-primary-purple" : "bg-gray-300"
         }`}
       >
         가입하기

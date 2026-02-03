@@ -21,16 +21,19 @@ export default function NextStepButton({
 
   return (
     <div className="flex flex-col items-center gap-4" data-step={currentStep}>
-      <button
-        type="button"
-        onClick={onNext}
-        disabled={!isSelected}
-        className={`w-full rounded-xl py-4 text-base font-semibold text-white transition ${
-          !isSelected ? "bg-gray-300" : entry ? "bg-primary-purple" : "bg-gray-800"
-        }`}
-      >
-        {entry ? "시작하기" : isLastStep ? "독토리 이용하러 가기" : "다음으로"}
-      </button>
+      {isSelected ? (
+        <button
+          type="button"
+          onClick={onNext}
+          className={`inline-flex animate-fade-in-up items-center justify-center rounded-full px-6 py-3 text-base font-semibold transition ${
+            isLastStep
+              ? "bg-primary-purple text-white"
+              : "border border-2 border-primary-purple text-primary-purple"
+          }`}
+        >
+          {entry ? "시작하기" : isLastStep ? "독토리 이용하러 가기" : "다음으로"}
+        </button>
+      ) : null}
       {showSkip ? (
         <button type="button" onClick={onSkip} className="text-caption text-gray-400">
           건너뛰기

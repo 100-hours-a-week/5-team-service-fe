@@ -31,12 +31,12 @@ export default function MaxSelectGroup({ name, options, maxSelect }: MaxSelectGr
             const disabled = !selected && atLimit;
 
             const baseClasses = isSingleColumn
-              ? "w-full rounded-3xl border px-4 py-6 text-center text-body-1 !font-[600] transition"
-              : "rounded-full border px-5 py-2 text-body-1 !font-[600] transition";
+              ? "w-full rounded-3xl border px-4 py-6 text-center text-body-1 !font-[500] transition"
+              : "rounded-full border px-5 py-2 text-body-1 !font-[500] transition";
             const stateClasses = selected
               ? isSingleColumn
-                ? "border-2 border-[var(--color-primary-purple)] shadow-[0_6px_16px_rgba(91,93,235,0.35)] bg-white text-gray-900"
-                : "border-transparent bg-[var(--color-primary-purple)] text-white shadow-[0_6px_16px_rgba(91,93,235,0.35)]"
+                ? "border-2 border-[var(--color-primary-purple)] shadow-[0_6px_16px_rgba(103,151,243,0.35)] bg-white text-gray-900"
+                : "border-transparent bg-[var(--color-primary-purple)] text-white shadow-[0_6px_16px_rgba(103,151,243,0.35)]"
               : disabled
                 ? "border-gray-200 bg-white text-gray-300"
                 : "border-gray-300 bg-white text-gray-900";

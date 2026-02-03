@@ -40,9 +40,9 @@ export default function BottomNav() {
         <Link
           href="/meeting/create/basic"
           aria-label="독서 모임 생성"
-          className="absolute -top-20 right-7 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-[var(--color-primary-purple-1)] to-[var(--color-primary-purple)] text-white shadow-[0_12px_24px_rgba(91,93,235,0.35)]"
+          className="absolute -top-20 right-7 z-10 flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary-purple bg-primary-purple text-white shadow-[0_10px_20px_rgba(91,123,255,0.18)]"
         >
-          <PlusIcon className="h-6 w-6" strokeWidth={2.5} aria-hidden="true" />
+          <PlusIcon className="h-6 w-6" strokeWidth={3} aria-hidden="true" />
         </Link>
       ) : null}
       <div className="grid h-full grid-cols-3">

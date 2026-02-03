@@ -8,6 +8,9 @@ import { BellIcon, CheckCircleIcon, ClockIcon } from "@heroicons/react/24/outlin
 import PageHeader from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/spinner";
 import { apiFetch } from "@/lib/api/apiFetch";
+import WarningConfirmModal from "@/components/common/WarningConfirmModal";
+import { useAuthStore } from "@/stores/authStore";
+import { useRouter } from "next/navigation";
 
 type NotificationItem = {
   id: number;
@@ -38,6 +41,9 @@ const formatNotificationTime = (value: string) => {
 const normalizeType = (type: string | null | undefined) => (type ?? "").trim().toUpperCase();
 
 export default function AlarmPage() {
+  const router = useRouter();
+  const accessToken = useAuthStore((state) => state.accessToken);
+
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<AlarmTab>("all");
   const { data, isLoading, isError } = useQuery<NotificationsResponse>({
@@ -76,6 +82,21 @@ export default function AlarmPage() {
     }
     return notifications;
   }, [activeTab, notifications]);
+
+  if (!accessToken) {
+    return (
+      <WarningConfirmModal
+        isOpen={!accessToken}
+        isClosing={false}
+        title="로그인이 필요해요!"
+        description="로그인 후 더 많은 독토리 서비스를 이용해보세요."
+        confirmLabel="로그인하기"
+        cancelLabel="홈으로"
+        onConfirm={() => router.push("/oauth")}
+        onClose={() => router.push("/")}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

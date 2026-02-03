@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { MessagePayload } from "firebase/messaging";
 
 import { initMessaging, listenForeground } from "@/lib/firebase";
 import { apiFetch } from "@/lib/api/apiFetch";
@@ -72,7 +71,6 @@ export default function FCMProvider(): null {
         if (!response || cancelled) return;
 
         const { messaging, token } = response;
-        console.log("FCM token: ", token);
 
         if (token && lastSentTokenRef.current !== token) {
           await apiFetch("/notifications/push-token", {
@@ -86,9 +84,7 @@ export default function FCMProvider(): null {
         if (cancelled) return;
 
         cleanupListener();
-        unsubscribeRef.current = listenForeground(messaging, (payload: MessagePayload) => {
-          console.log("foreground push:", payload);
-        });
+        unsubscribeRef.current = listenForeground(messaging, () => {});
       } catch (e) {
         console.error("[FCMProvider] init/register failed:", e);
       } finally {
