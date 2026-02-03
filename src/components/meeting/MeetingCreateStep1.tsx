@@ -84,7 +84,7 @@ export default function MeetingCreateStep1() {
           name="meetingImageFile"
           urlName="meetingImagePath"
           label="이미지 업로드"
-          description="최대 5MB 크기의 JPG, PNG 파일만 업로드 가능합니다."
+          description="최대 5MB 크기의 JPG, PNG, WEBP 형식만 허용"
         />
       </section>
 
