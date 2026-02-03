@@ -1,9 +1,10 @@
+import toYmd from "@/lib/toYmd";
 import { z } from "zod";
 
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]/;
-const ALLOWED_CHARS = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9 ?!,.\(\)\[\]&+\-]+$/;
+const CONTROL_CHARS = /[\u0000-\u0009\u000B\u000C\u000E-\u001F\u007F]/;
+const ALLOWED_CHARS = /^[가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9 ?!,.\(\)\[\]&+\-\n\r]+$/;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; //5MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const contentSchema = z
   .string()
@@ -20,7 +21,8 @@ const timeString = z
 const dateString = z
   .string()
   .min(1, { message: "날짜를 입력해주세요." })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "날짜는 YYYY-MM-DD 형식이어야 합니다.");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "날짜는 YYYY-MM-DD 형식이어야 합니다.")
+  .refine((v) => v >= toYmd(new Date()), "과거 날짜는 선택할 수 없습니다.");
 
 const ImageSchema = z
   .instanceof(File)
@@ -83,7 +85,10 @@ export const CreateMeetingBaseSchema = z.object({
   title: z
     .string()
     .min(2, { message: "모임명은 최소 2자 이상이여야 합니다." })
-    .max(50, { message: "모임명은 최대 50자 이하여야 합니다." }),
+    .max(50, { message: "모임명은 최대 50자 이하여야 합니다." })
+    .refine((v) => v.trim().length >= 2, { message: "공백만 입력할 수 없습니다." })
+    .refine((v) => !CONTROL_CHARS.test(v), { message: "이모지나 특수문자는 사용할 수 없습니다." })
+    .refine((v) => ALLOWED_CHARS.test(v), { message: "이모지나 특수문자는 사용할 수 없습니다." }),
   description: contentSchema,
   readingGenreId: z
     .number()
@@ -125,6 +130,21 @@ export const CreateMeetingSchema = CreateMeetingBaseSchema.superRefine((data, ct
       path: ["booksByRound"],
       message: "모든 회차에 도서를 선택해주세요.",
     });
+  }
+  if (data.firstRoundAt) {
+    const first = new Date(data.firstRoundAt);
+    if (!Number.isNaN(first.getTime())) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      first.setHours(0, 0, 0, 0);
+      if (first < today) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["firstRoundAt"],
+          message: "시작 날짜는 오늘 이후로 선택해주세요.",
+        });
+      }
+    }
   }
 });
 
