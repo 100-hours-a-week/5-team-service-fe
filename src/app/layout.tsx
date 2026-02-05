@@ -4,6 +4,7 @@ import Providers from "@/app/providers";
 import AppShell from "@/components/layout/AppShell";
 import localFont from "next/font/local";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 export const metadata: Metadata = {
   title: "DOKTORI 독토리",
@@ -28,10 +29,13 @@ const myFont = localFont({
 });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
   return (
     <html lang="ko" className={myFont.variable}>
       <body className={`${myFont.className} min-h-dvh bg-gray-100 lg:overflow-hidden`}>
         <Providers>
+          {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
           <AppShell>{children}</AppShell>
           <ReactQueryDevtools initialIsOpen={false} />
         </Providers>
