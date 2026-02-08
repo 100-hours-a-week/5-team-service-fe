@@ -84,7 +84,6 @@ jobs:
           path: frontend-build.tar.gz
           retention-days: 1
 
-
       - name: Notify Discord on failure
         if: failure()
         run: |
@@ -149,7 +148,6 @@ jobs:
       - name: Package for Deployment
         run: |
           mv frontend-dist/frontend-build.tar.gz ./frontend-build.tar.gz
-
 
       # --- [1] GitHub Actions 서버의 공인 IP 실시간 확인 ---
       - name: Get GitHub IP
