@@ -1,5 +1,5 @@
 import MainHeader from "@/components/layout/MainHeader";
-import MeetingList from "@/components/meeting/MeetingList";
+import { MeetingList } from "@/features/view-meeting-list/ui/MeetingList";
 import RecommendedMeetings from "@/components/meeting/RecommendedMeetings";
 
 export default function Page() {
