@@ -70,6 +70,8 @@ jobs:
           NEXT_PUBLIC_GA_ID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_GA_ID_PROD || secrets.NEXT_PUBLIC_GA_ID_DEV }}
           NEXT_PUBLIC_FIREBASE_APPID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_APPID_PROD || secrets.NEXT_PUBLIC_FIREBASE_APPID_DEV }}
           NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_DEV }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_SENTRY_DSN_PROD || secrets.NEXT_PUBLIC_SENTRY_DSN_DEV }}
+          NEXT_PUBLIC_SENTRY_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
 
       - name: Prepare build artifact (tar.gz)
         if: github.event_name == 'push'
