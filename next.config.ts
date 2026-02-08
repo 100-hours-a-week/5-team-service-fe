@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -32,4 +33,18 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: "doktori",
+  project: "doktori-fe",
+
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+
+  webpack: {
+    automaticVercelMonitors: true,
+
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});
