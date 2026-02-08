@@ -71,21 +71,17 @@ jobs:
           NEXT_PUBLIC_FIREBASE_APPID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_APPID_PROD || secrets.NEXT_PUBLIC_FIREBASE_APPID_DEV }}
           NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_DEV }}
 
-      - name: Prepare build artifact
+      - name: Prepare build artifact (tar.gz)
         if: github.event_name == 'push'
-        run: mv .next next-build
+        run: |
+          tar -czf frontend-build.tar.gz .next public package.json pnpm-lock.yaml next.config.ts
 
       - name: Upload Build Artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: |
-            next-build
-            public
-            package.json
-            pnpm-lock.yaml
-            next.config.ts
+          path: frontend-build.tar.gz
           retention-days: 1
 
       - name: Notify Discord on failure
@@ -151,9 +147,7 @@ jobs:
 
       - name: Package for Deployment
         run: |
-          cd frontend-dist
-          mv next-build .next
-          tar -czf ../frontend-build.tar.gz .
+          mv frontend-dist/frontend-build.tar.gz ./frontend-build.tar.gz
 
       # --- [1] GitHub Actions 서버의 공인 IP 실시간 확인 ---
       - name: Get GitHub IP
