@@ -101,6 +101,9 @@ export default function MeetingCreateStep3() {
     await queryClient.invalidateQueries({ queryKey: ["meetings"] });
     await queryClient.invalidateQueries({ queryKey: ["meetings", { size: 6 }] });
     await queryClient.invalidateQueries({ queryKey: ["my-meetings"] });
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("meetingList:forceRefetch", "1");
+    }
     resetMeetingCreate();
     router.push("/");
   };
