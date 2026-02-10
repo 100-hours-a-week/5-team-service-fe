@@ -58,7 +58,7 @@ const roundSchema = z
 
 const bookSchema = z
   .object({
-    isbn13: z.string().regex(/^\d{13}$/, "isbn13은 13자리 숫자여야 합니다."),
+    isbn: z.string().regex(/^\d{13}$/, "isbn13은 13자리 숫자여야 합니다."),
     title: z.string().min(1, { message: "책 제목이 정상적으로 입력되지 않았습니다." }),
     authors: z.string().min(1, { message: "작가명이 정상적으로 입력되지 않았습니다." }),
     publisher: z.string().min(1, { message: "출판사명이 정상적으로 입력되지 않았습니다." }),

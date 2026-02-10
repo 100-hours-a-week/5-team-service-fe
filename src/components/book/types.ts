@@ -4,5 +4,5 @@ export type Book = {
   publisher: string;
   thumbnailUrl: string;
   publishedAt: string;
-  isbn13: string;
+  isbn: string;
 };
