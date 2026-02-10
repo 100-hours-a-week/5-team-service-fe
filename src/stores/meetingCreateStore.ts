@@ -6,7 +6,7 @@ export type MeetingRound = {
 };
 
 export type MeetingBook = {
-  isbn13: string;
+  isbn: string;
   title: string;
   authors: string;
   publisher: string;
