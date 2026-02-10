@@ -116,22 +116,23 @@ jobs:
 
       - name: Deploy to test EC2
         uses: appleboy/ssh-action@v1.0.3
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
-          AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          IMAGE_URI: ${{ needs.build_and_push.outputs.image_uri }}
         with:
           host: ${{ secrets.TEST_EC2_HOST }}
           username: ${{ secrets.TEST_EC2_USERNAME }}
           key: ${{ secrets.TEST_EC2_SSH_KEY }}
           script: |
             set -e
+            AWS_REGION="ap-northeast-2"
+            AWS_ACCOUNT_ID="246477585940"
+            IMAGE_URI="${{ needs.build_and_push.outputs.image_uri }}"
+
             ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
             aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
             docker pull "${IMAGE_URI}"
             docker rm -f fe-test || true
             docker run -d --name fe-test -p 3000:3000 --restart unless-stopped "${IMAGE_URI}"
             docker image prune -f || true
+
 
       - name: Revoke runner IP for SSH
         if: always()
