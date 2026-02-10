@@ -133,7 +133,6 @@ jobs:
             docker run -d --name fe-test -p 3000:3000 --restart unless-stopped "${IMAGE_URI}"
             docker image prune -f || true
 
-
       - name: Revoke runner IP for SSH
         if: always()
         env:
