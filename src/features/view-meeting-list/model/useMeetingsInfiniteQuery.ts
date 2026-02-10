@@ -13,6 +13,15 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
   const [prefetchDone, setPrefetchDone] = useState(() => !restore);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const shouldRefetch = sessionStorage.getItem("meetingList:forceRefetch") === "1";
+    if (!shouldRefetch) return;
+    sessionStorage.removeItem("meetingList:forceRefetch");
+    queryClient.invalidateQueries({ queryKey });
+    queryClient.refetchQueries({ queryKey });
+  }, [queryClient, queryKey]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const prefetchForRestore = async () => {
@@ -33,7 +42,6 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
       for (let i = 0; i < pagesToPrefetch; i++) {
         const pageParam = cursorId;
         const response = await fetchMeetings({ size: params.size, cursorId: pageParam });
-
         pages.push(response);
         pageParams.push(pageParam);
 
@@ -67,6 +75,7 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
       getNextPageParam: (lastPage) =>
         lastPage.pageInfo.hasNext ? lastPage.pageInfo.nextCursorId : undefined,
       enabled: prefetchDone,
+      staleTime: 1000 * 60 * 10,
       retry: 0,
       refetchOnMount: false,
       refetchOnReconnect: false,

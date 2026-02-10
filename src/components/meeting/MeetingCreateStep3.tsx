@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormContext, useWatch } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api/apiFetch";
 import { uploadImageToS3 } from "@/lib/uploadImageToS3";
@@ -13,6 +14,7 @@ export default function MeetingCreateStep3() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { control, getValues, setValue } = useFormContext<CreateMeetingFormValues>();
+  const queryClient = useQueryClient();
   const resetMeetingCreate = useMeetingCreateStore((state) => state.reset);
   const rounds = useWatch({ control, name: "rounds", defaultValue: [] });
   const booksByRound = useWatch({ control, name: "booksByRound", defaultValue: [] });
@@ -96,6 +98,12 @@ export default function MeetingCreateStep3() {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    await queryClient.invalidateQueries({ queryKey: ["meetings", { size: 6 }] });
+    await queryClient.invalidateQueries({ queryKey: ["my-meetings"] });
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("meetingList:forceRefetch", "1");
+    }
     resetMeetingCreate();
     router.push("/");
   };
