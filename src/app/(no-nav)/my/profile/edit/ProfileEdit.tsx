@@ -16,7 +16,7 @@ import { Profile } from "@/components/my/profile/types";
 import { uploadImageToS3 } from "@/lib/uploadImageToS3";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; //5MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png"];
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const profileSchema = z.object({
   nickname: z.string().min(1, "닉네임을 입력해주세요.").max(20, "최대 20자까지 입력 가능합니다."),
@@ -27,7 +27,7 @@ const profileSchema = z.object({
     .instanceof(File)
     .nullable()
     .refine((file) => !file || ALLOWED_MIME_TYPES.includes(file.type), {
-      message: "프로필 이미지는 JPG/JPEG 또는 PNG 파일만 업로드할 수 있습니다.",
+      message: "프로필 이미지는 JPG, PNG, WEBP 파일만 업로드할 수 있습니다.",
     })
     .refine((file) => !file || file.size <= MAX_FILE_SIZE, {
       message: "프로필 이미지는 최대 5MB까지 업로드할 수 있습니다.",
@@ -83,12 +83,12 @@ export default function ProfileEdit() {
       let profileImagePath = values.profileImagePath ?? null;
 
       if (values.profileImageFile instanceof File) {
-        const { publicUrl } = await uploadImageToS3({
+        const { key, publicUrl } = await uploadImageToS3({
           file: values.profileImageFile,
           directory: "PROFILE",
         });
 
-        profileImagePath = publicUrl;
+        profileImagePath = key;
 
         form.setValue("profileImagePath", publicUrl, { shouldDirty: true, shouldValidate: true });
         form.setValue("profileImageFile", null, { shouldDirty: true, shouldValidate: true });
