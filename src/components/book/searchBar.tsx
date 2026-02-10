@@ -13,7 +13,7 @@ export type Book = {
   publisher: string;
   thumbnailUrl: string;
   publishedAt: string;
-  isbn13: string;
+  isbn: string;
 };
 
 type PageInfo = {
@@ -119,7 +119,7 @@ export default function SearchBar({ onSelect }: { onSelect?: (book: Book) => voi
         <div className="flex flex-col gap-4 space-y-2 pb-6">
           {books.map((book) => (
             <BookSearchItem
-              key={book.isbn13}
+              key={book.isbn}
               book={book}
               onSelect={onSelect ? () => onSelect(book) : undefined}
             />

@@ -1,4 +1,9 @@
-export default function calculateRoundDates(baseDate: string, weekday: number, count: number) {
+export default function calculateRoundDates(
+  baseDate: string,
+  weekday: number,
+  count: number,
+  intervalWeeks = 1,
+) {
   const base = new Date(baseDate);
   if (Number.isNaN(base.getTime())) return [];
   const day = base.getDay();
@@ -7,7 +12,7 @@ export default function calculateRoundDates(baseDate: string, weekday: number, c
   first.setDate(first.getDate() + diff);
   return Array.from({ length: count }, (_, i) => {
     const date = new Date(first);
-    date.setDate(first.getDate() + i * 7);
+    date.setDate(first.getDate() + i * 7 * intervalWeeks);
     const yyyy = date.getFullYear();
     const mm = `${date.getMonth() + 1}`.padStart(2, "0");
     const dd = `${date.getDate()}`.padStart(2, "0");

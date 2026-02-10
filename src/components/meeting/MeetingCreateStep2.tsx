@@ -34,6 +34,7 @@ export default function MeetingCreateStep2() {
     defaultValue: "",
   });
   const [meetingWeekday, setMeetingWeekday] = useState<number | null>(null);
+  const [roundIntervalWeeks, setRoundIntervalWeeks] = useState(1);
 
   useEffect(() => {
     if (rounds.length !== roundCount) {
@@ -52,11 +53,16 @@ export default function MeetingCreateStep2() {
 
   useEffect(() => {
     if (!firstRoundAt || meetingWeekday === null) return;
-    const nextRounds = calculateRoundDates(firstRoundAt, meetingWeekday, roundCount);
+    const nextRounds = calculateRoundDates(
+      firstRoundAt,
+      meetingWeekday,
+      roundCount,
+      roundIntervalWeeks,
+    );
     if (nextRounds.length) {
       setValue("rounds", nextRounds, { shouldDirty: true, shouldValidate: true });
     }
-  }, [firstRoundAt, meetingWeekday, roundCount, setValue]);
+  }, [firstRoundAt, meetingWeekday, roundCount, roundIntervalWeeks, setValue]);
 
   useEffect(() => {
     if (!time.startTime || durationMinutes <= 0) return;
@@ -224,8 +230,24 @@ export default function MeetingCreateStep2() {
 
       {rounds.length ? (
         <section className="flex flex-col gap-4">
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-col gap-2">
             <label className="text-base font-semibold text-gray-900">최종 모임 일정</label>
+            <div className="flex flex-wrap gap-2">
+              {[1, 2, 3, 4].map((weeks) => (
+                <button
+                  key={weeks}
+                  type="button"
+                  onClick={() => setRoundIntervalWeeks(weeks)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    roundIntervalWeeks === weeks
+                      ? "bg-primary-purple text-white"
+                      : "border border-gray-200 text-gray-600"
+                  }`}
+                >
+                  {weeks}주
+                </button>
+              ))}
+            </div>
           </div>
           <div className="rounded-2xl border border-gray-200 px-4 py-3 text-body-2 text-gray-600">
             {rounds.map((round) => (

@@ -7,9 +7,9 @@ import { apiFetch } from "@/lib/api/apiFetch";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { PolicyOption } from "@/components/onboarding/model/stepInfo";
-import { MeetingItem } from "@/components/meeting/MeetingItem";
 import type { MeetingItemData } from "@/components/meeting/types";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MeetingCard } from "@/features/view-meeting-list/ui/MeetingCard";
 
 type MeetingListResponse = {
   items: MeetingItemData[];
@@ -64,10 +64,7 @@ function buildMeetingQuery(filter: FilterState, cursorId?: number) {
 
   filter.startTimeCodes.forEach((code) => params.append("startTimeFrom", code));
 
-  const topicCode = filter.topicCodes[0];
-  if (topicCode) {
-    params.set("readingGenre", topicCode);
-  }
+  filter.topicCodes.forEach((code) => params.append("readingGenre", code));
 
   return params.toString();
 }
@@ -297,7 +294,7 @@ export default function MeetingSearch() {
           ) : (
             <div className="grid grid-cols-2 gap-4">
               {meetings.map((meeting) => (
-                <MeetingItem
+                <MeetingCard
                   key={meeting.meetingId}
                   meeting={meeting}
                   genreName={genreMap.get(meeting.readingGenreId)}

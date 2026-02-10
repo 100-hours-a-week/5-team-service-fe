@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormContext, useWatch } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api/apiFetch";
 import { uploadImageToS3 } from "@/lib/uploadImageToS3";
@@ -13,6 +14,7 @@ export default function MeetingCreateStep3() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { control, getValues, setValue } = useFormContext<CreateMeetingFormValues>();
+  const queryClient = useQueryClient();
   const resetMeetingCreate = useMeetingCreateStore((state) => state.reset);
   const rounds = useWatch({ control, name: "rounds", defaultValue: [] });
   const booksByRound = useWatch({ control, name: "booksByRound", defaultValue: [] });
@@ -47,42 +49,61 @@ export default function MeetingCreateStep3() {
   const handleSubmit = async () => {
     const values = getValues();
     let meetingImagePath = values.meetingImagePath;
+    let meetingImageKey;
     const meetingImageFile = values.meetingImageFile as File | undefined;
 
     if (meetingImageFile) {
-      const { publicUrl } = await uploadImageToS3({
+      const { key, publicUrl } = await uploadImageToS3({
         file: meetingImageFile,
         directory: "MEETING",
       });
       meetingImagePath = publicUrl;
+      meetingImageKey = key;
     }
 
-    const firstRoundAt =
-      values.rounds.find((round) => round.roundNo === 1)?.date ?? values.firstRoundAt;
+    const bookByRoundNo = new Map(values.booksByRound.map((b) => [b.roundNo, b.book]));
+
     const payload = {
-      meetingImagePath,
+      meetingImagePath: meetingImageKey,
       title: values.title,
       description: values.description,
       readingGenreId: values.readingGenreId,
       capacity: values.capacity,
       roundCount: values.roundCount,
-      rounds: values.rounds,
-      time: values.time,
-      booksByRound: values.booksByRound.map((b) => ({
-        roundNo: b.roundNo,
-        book: b.book,
-      })),
+      rounds: values.rounds.map((round) => {
+        const book = bookByRoundNo.get(round.roundNo);
+        console.log("book: ", book);
+        return {
+          ...round,
+          book: book
+            ? {
+                isbn: book.isbn,
+                title: book.title,
+                authors: book.authors,
+                publisher: book.publisher,
+              }
+            : null,
+        };
+      }),
+      startTime: values.time.startTime,
       leaderIntro: values.leaderIntro ?? "",
       leaderIntroSavePolicy: values.leaderIntroSavePolicy ?? false,
       durationMinutes: 30,
-      firstRoundAt,
       recruitmentDeadline: values.recruitmentDeadline,
     };
+
+    console.log("test: ", payload);
 
     await apiFetch("/meetings", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    await queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    await queryClient.invalidateQueries({ queryKey: ["meetings", { size: 6 }] });
+    await queryClient.invalidateQueries({ queryKey: ["my-meetings"] });
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("meetingList:forceRefetch", "1");
+    }
     resetMeetingCreate();
     router.push("/");
   };
