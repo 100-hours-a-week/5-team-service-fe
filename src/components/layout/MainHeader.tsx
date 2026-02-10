@@ -4,18 +4,21 @@ import Link from "next/link";
 import { BellIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/apiFetch";
+import { useAuthStore } from "@/stores/authStore";
 
 type UnreadResponse = {
   hasUnread: boolean;
 };
 
 export default function MainHeader({ hasUnread = false }: { hasUnread: boolean }) {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const { data } = useQuery<UnreadResponse>({
     queryKey: ["notificationsUnread"],
     queryFn: () => apiFetch<UnreadResponse>("/notifications/unread", {}),
     staleTime: 1000 * 30,
+    enabled: Boolean(accessToken),
   });
-  const resolvedHasUnread = data?.hasUnread ?? hasUnread;
+  const resolvedHasUnread = accessToken ? (data?.hasUnread ?? hasUnread) : false;
   return (
     <header className="flex items-center justify-between px-6 py-5">
       <Link href="/" className="text-lg font-bold text-gray-900" aria-label="홈으로">
