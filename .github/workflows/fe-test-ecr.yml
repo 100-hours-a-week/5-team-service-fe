@@ -1,8 +1,6 @@
 name: TEST FE ECR Deploy
 
 on:
-  push:
-    branches: [exp/fe-test-bg]
   workflow_dispatch:
 
 jobs:
