@@ -192,10 +192,9 @@ jobs:
           COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" '[
             "set -e",
             ("aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin " + $registry),
-            ("docker pull " + $registry + "/doktori/frontend:develop"),
-            "docker stop frontend 2>/dev/null || true",
-            "docker rm frontend 2>/dev/null || true",
-            ("docker run -d --name frontend --restart unless-stopped -p 3000:3000 " + $registry + "/doktori/frontend:develop"),
+            ("export ECR_REGISTRY=" + $registry),
+            "docker compose -f /home/ubuntu/app/docker-compose.yml pull frontend",
+            "docker compose -f /home/ubuntu/app/docker-compose.yml up -d frontend",
             "docker image prune -f"
           ]')
 
