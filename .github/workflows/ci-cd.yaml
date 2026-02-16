@@ -194,7 +194,7 @@ jobs:
             "set -e",
             ("export ECR_REGISTRY=" + $registry),
             "docker compose -f /home/ubuntu/app/docker-compose.yml pull frontend",
-            "docker compose -f /home/ubuntu/app/docker-compose.yml up -d frontend",
+            "docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend",
             "docker image prune -f"
           ]')
 
