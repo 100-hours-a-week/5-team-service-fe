@@ -1,4 +1,4 @@
-import BottomNav from "@/components/layout/BottomNav";
+import BottomNav from "@/widgets/bottom-nav/ui/BottomNav";
 import { Suspense } from "react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
