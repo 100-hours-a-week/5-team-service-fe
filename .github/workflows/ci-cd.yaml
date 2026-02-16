@@ -6,9 +6,9 @@ on:
       - develop
       - main
     paths-ignore:
-      - '.github/**'
-      - '*.md'
-      - 'docs/**'
+      - ".github/**"
+      - "*.md"
+      - "docs/**"
   pull_request:
     branches:
       - develop
