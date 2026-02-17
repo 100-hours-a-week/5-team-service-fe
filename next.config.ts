@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
         hostname: "doktori-prod-images.s3.ap-northeast-2.amazonaws.com",
         pathname: "/images/**",
       },
+      {
+        protocol: "https",
+        hostname: "*.s3.ap-northeast-2.amazonaws.com",
+        pathname: "/images/**",
+      },
     ],
   },
 };
