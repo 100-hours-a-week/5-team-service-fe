@@ -3,14 +3,21 @@
 import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import FCMProvider from "@/components/alarm/FCMProvider";
+import AuthInit from "./_providers/auth/AuthInit";
+import AuthGate from "./_providers/auth/AuthGate";
+import FullScreenSpinner from "@/shared/ui/FullScreenSpinner";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
-
   return (
-    <QueryClientProvider client={queryClient}>
-      <FCMProvider />
-      {children}
-    </QueryClientProvider>
+    <>
+      <AuthInit />
+      <AuthGate fallback={<FullScreenSpinner />}>
+        <QueryClientProvider client={queryClient}>
+          <FCMProvider />
+          {children}
+        </QueryClientProvider>
+      </AuthGate>
+    </>
   );
 }
