@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import initAuth from "@/shared/model/initAuth";
 import { useAuthStore } from "@/shared/store/authStore";
