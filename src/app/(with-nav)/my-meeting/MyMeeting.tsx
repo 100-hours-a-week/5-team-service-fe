@@ -11,7 +11,7 @@ import {
 } from "@/components/my/meeting/types";
 import { PolicyOption } from "@/components/onboarding/model/stepInfo";
 import { apiFetch } from "@/lib/api/apiFetch";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/shared/store/authStore";
 import { InfiniteData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 
