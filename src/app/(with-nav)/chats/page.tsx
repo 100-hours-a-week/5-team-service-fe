@@ -1,4 +1,4 @@
-import GetChatRoomsList from "@/pages/get-chat-list/ui/Page";
+import GetChatRoomsList from "@/views/get-chat-list/ui/Page";
 
 export default function Page() {
   return <GetChatRoomsList />;
