@@ -1,6 +1,8 @@
-import { authStore } from "@/stores/authStore";
+"use client";
+
 import { ApiErrorResponse, ApiFetchOptions, ApiResponse } from "./types";
 import { refreshAccessToken } from "../auth/refreshAccessToken";
+import { authStore } from "@/shared/store/authStore";
 
 export async function apiFetch<T>(path: string, init: ApiFetchOptions) {
   const base = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -12,6 +14,7 @@ export async function apiFetch<T>(path: string, init: ApiFetchOptions) {
   const controller = new AbortController();
   const timeoutMs = init.timeoutMs ?? 5000;
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  let parsedError: ApiErrorResponse | null = null;
 
   try {
     const accessToken = authStore.getAccessToken();
@@ -39,6 +42,7 @@ export async function apiFetch<T>(path: string, init: ApiFetchOptions) {
       } catch {
         error = null;
       }
+      parsedError = error;
 
       if (error?.code === "TOKEN_EXPIRED") {
         const newAccessToken = await refreshAccessToken();
@@ -46,7 +50,7 @@ export async function apiFetch<T>(path: string, init: ApiFetchOptions) {
         if (newAccessToken) {
           const retryHeaders = new Headers(init.headers);
           retryHeaders.set("Authorization", `Bearer ${newAccessToken}`);
-          return apiFetch<T>(url, {
+          return apiFetch<T>(path, {
             ...init,
             headers: retryHeaders,
             signal: controller.signal,
@@ -71,7 +75,19 @@ export async function apiFetch<T>(path: string, init: ApiFetchOptions) {
     }
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+      if (!parsedError) {
+        try {
+          parsedError = (await response.json()) as ApiErrorResponse;
+        } catch {
+          parsedError = null;
+        }
+      }
+      const customError = new Error(parsedError?.message ?? `API 요청 실패: ${response.status}`);
+      if (parsedError?.code) {
+        (customError as { code?: string }).code = parsedError.code;
+      }
+      (customError as { status?: number }).status = response.status;
+      throw customError;
     }
 
     if (response.status === 204) {
