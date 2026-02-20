@@ -4,7 +4,7 @@ import Link from "next/link";
 import { BellIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api/apiFetch";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/shared/store/authStore";
 
 type UnreadResponse = {
   hasUnread: boolean;

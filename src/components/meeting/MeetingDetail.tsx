@@ -10,10 +10,11 @@ import type { PolicyOption } from "@/components/onboarding/model/stepInfo";
 import PageHeader from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/spinner";
 import WarningConfirmModal from "@/components/common/WarningConfirmModal";
-import { authStore } from "@/stores/authStore";
+
 import { ApiErrorResponse } from "@/lib/api/types";
 import formatKoreanDate from "@/lib/formatKoreanDate";
 import { MeetingDetailResponse } from "./types";
+import { authStore } from "@/shared/store/authStore";
 
 export default function MeetingDetail() {
   const params = useParams<{ meetingId?: string }>();
@@ -48,7 +49,7 @@ export default function MeetingDetail() {
     const participation = data?.participantsPreview.myParticipationStatus ?? "NONE";
 
     if (status === "FINISHED") {
-      return { label: "종료된 모임입니다.", tone: "danger", disabled: true };
+      return { label: "모집이 마감되었습니다", tone: "danger", disabled: true };
     }
     if (status && status !== "RECRUITING") {
       return { label: "모집이 마감되었습니다.", tone: "muted", disabled: true };
