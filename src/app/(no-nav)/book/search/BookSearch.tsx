@@ -7,8 +7,8 @@ import PageHeader from "@/components/layout/PageHeader";
 export default function BookSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo") ?? "/meeting/create/book";
-  const roundParam = searchParams.get("round");
+  const returnTo = searchParams?.get("returnTo") ?? "/meeting/create/book";
+  const roundParam = searchParams?.get("round");
   const roundNo = roundParam ? Number(roundParam) : null;
 
   const handleSelect = (book: Book) => {
@@ -18,6 +18,7 @@ export default function BookSearch() {
       router.push(`${returnTo}?round=${roundNo}`);
       return;
     }
+
     router.push(returnTo);
   };
 
