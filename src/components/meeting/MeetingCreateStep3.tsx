@@ -20,7 +20,7 @@ export default function MeetingCreateStep3() {
   const booksByRound = useWatch({ control, name: "booksByRound", defaultValue: [] });
 
   const paramRound = useMemo(() => {
-    const roundParam = searchParams.get("round");
+    const roundParam = searchParams?.get("round");
     if (!roundParam) return null;
     const parsed = Number(roundParam);
     return Number.isNaN(parsed) ? null : parsed;
