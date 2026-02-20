@@ -152,7 +152,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Frontend image
+      - name: Build and push Frontend images
         uses: docker/build-push-action@v6
         with:
           context: .
