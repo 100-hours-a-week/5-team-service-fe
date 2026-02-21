@@ -24,8 +24,7 @@ RUN --mount=type=secret,id=frontend_env,target=/run/secrets/frontend_env \
     set -a && . /run/secrets/frontend_env && set +a \
     && test -n "${NEXT_PUBLIC_API_BASE_URL}" \
     && pnpm build \
-    && find .next -name "*.map" -type f -delete \
-    && mkdir -p .next/cache
+    && find .next -name "*.map" -type f -delete
 
 FROM gcr.io/distroless/nodejs20-debian12 AS runner
 WORKDIR /app
@@ -34,7 +33,6 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY --from=builder --chown=nonroot:nonroot /app/.next/standalone ./
 COPY --from=builder --chown=nonroot:nonroot /app/.next/static ./.next/static
-COPY --from=builder --chown=nonroot:nonroot /app/.next/cache ./.next/cache
 COPY --from=builder --chown=nonroot:nonroot /app/public ./public
 
 USER nonroot
