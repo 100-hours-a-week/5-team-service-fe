@@ -8,11 +8,12 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api/apiFetch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Pencil } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
-import { authStore, useAuthStore } from "@/stores/authStore";
+
 import { ProfileData } from "@/components/onboarding/types";
 import MyPageOption from "@/components/my/MyPageOption";
 import WarningConfirmModal from "@/components/common/WarningConfirmModal";
+import { authStore, useAuthStore } from "@/shared/store/authStore";
+import FullScreenSpinner from "@/shared/ui/FullScreenSpinner";
 
 export default function Profile() {
   const router = useRouter();
@@ -74,11 +75,7 @@ export default function Profile() {
   }
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <Spinner className="size-15 text-gray-400" />
-      </div>
-    );
+    return <FullScreenSpinner label={"회원 정보 조회중..."} />;
   }
 
   return (

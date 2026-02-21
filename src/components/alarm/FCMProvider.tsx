@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
 import { initMessaging, listenForeground } from "@/lib/firebase";
 import { apiFetch } from "@/lib/api/apiFetch";
-import { useAuthStore } from "@/stores/authStore";
+import { useAuthStore } from "@/shared/store/authStore";
 
 type Unsubscribe = () => void;
 

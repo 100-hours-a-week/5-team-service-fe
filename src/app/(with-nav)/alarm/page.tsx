@@ -9,8 +9,9 @@ import PageHeader from "@/components/layout/PageHeader";
 import { Spinner } from "@/components/ui/spinner";
 import { apiFetch } from "@/lib/api/apiFetch";
 import WarningConfirmModal from "@/components/common/WarningConfirmModal";
-import { useAuthStore } from "@/stores/authStore";
+
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/shared/store/authStore";
 
 type NotificationItem = {
   id: number;

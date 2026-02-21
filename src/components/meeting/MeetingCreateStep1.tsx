@@ -13,8 +13,9 @@ import RadioGroup from "../form/RadioGroup";
 import NumberStepper from "../form/NumberStepper";
 import { Spinner } from "../ui/spinner";
 import WarningConfirmModal from "../common/WarningConfirmModal";
-import { useAuthStore } from "@/stores/authStore";
+
 import ImageUploaderDropzone from "@/components/form/ImageUploaderDropzone";
+import { useAuthStore } from "@/shared/store/authStore";
 
 export default function MeetingCreateStep1() {
   const router = useRouter();
