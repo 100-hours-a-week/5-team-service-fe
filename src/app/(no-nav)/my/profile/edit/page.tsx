@@ -1,5 +1,5 @@
-import ProfileEdit from "@/app/(no-nav)/my/profile/edit/ProfileEdit";
+import EditUserProfilePage from "@/views/edit-user-profile/ui/Page";
 
 export default function Page() {
-  return <ProfileEdit />;
+  return <EditUserProfilePage />;
 }
