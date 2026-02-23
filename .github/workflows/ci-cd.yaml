@@ -187,6 +187,9 @@ jobs:
 
           COMMANDS=$(jq -n --arg registry "$REGISTRY" --arg tag "$TAG" '[
             "set -e",
+            "export DOCKER_CONFIG=/tmp/.docker-ecr",
+            "mkdir -p \"$DOCKER_CONFIG\"",
+            "printf '\''{\"auths\":{}}'\'' > \"$DOCKER_CONFIG/config.json\"",
             ("aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin " + $registry),
             ("docker pull " + $registry + "/doktori/frontend:" + $tag),
             ("docker tag " + $registry + "/doktori/frontend:" + $tag + " " + $registry + "/doktori/frontend:develop"),
@@ -280,6 +283,9 @@ jobs:
 
           COMMANDS=$(jq -n --arg registry "$REGISTRY" --arg tag "$TAG" '[
             "set -e",
+            "export DOCKER_CONFIG=/tmp/.docker-ecr",
+            "mkdir -p \"$DOCKER_CONFIG\"",
+            "printf '\''{\"auths\":{}}'\'' > \"$DOCKER_CONFIG/config.json\"",
             ("aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin " + $registry),
             ("docker pull " + $registry + "/doktori/frontend:" + $tag),
             "docker stop frontend 2>/dev/null || true",
@@ -374,6 +380,9 @@ jobs:
 
           COMMANDS=$(jq -n --arg registry "$REGISTRY" --arg tag "$TAG" '[
             "set -e",
+            "export DOCKER_CONFIG=/tmp/.docker-ecr",
+            "mkdir -p \"$DOCKER_CONFIG\"",
+            "printf '\''{\"auths\":{}}'\'' > \"$DOCKER_CONFIG/config.json\"",
             ("aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin " + $registry),
             ("docker pull " + $registry + "/doktori/frontend:" + $tag),
             ("docker tag " + $registry + "/doktori/frontend:" + $tag + " " + $registry + "/doktori/frontend:develop"),
