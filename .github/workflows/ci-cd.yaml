@@ -88,7 +88,7 @@ jobs:
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }} || true
 
-  build-and-push:
+  build-and-push-arm64:
     needs: ci
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04-arm
@@ -115,20 +115,21 @@ jobs:
         run: |
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
           SHORT_SHA="${GITHUB_SHA:0:7}"
+          ARCH="arm64"
           if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            TAG="sha-${SHORT_SHA}"
+            TAG="sha-${SHORT_SHA}-${ARCH}"
             {
               echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:sha-${SHORT_SHA}"
-              echo "${REGISTRY}/doktori/frontend:develop"
+              echo "${REGISTRY}/doktori/frontend:${TAG}"
+              echo "${REGISTRY}/doktori/frontend:develop-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           else
-            TAG="sha-${SHORT_SHA}"
+            TAG="sha-${SHORT_SHA}-${ARCH}"
             {
               echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:sha-${SHORT_SHA}"
-              echo "${REGISTRY}/doktori/frontend:latest"
+              echo "${REGISTRY}/doktori/frontend:${TAG}"
+              echo "${REGISTRY}/doktori/frontend:latest-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           fi
@@ -166,8 +167,87 @@ jobs:
           secret-files: |
             frontend_env=.env.build
 
+  build-and-push-amd64:
+    needs: ci
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image-tag: ${{ steps.meta.outputs.image-tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          ARCH="amd64"
+          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            TAG="sha-${SHORT_SHA}-${ARCH}"
+            {
+              echo "tags<<EOF"
+              echo "${REGISTRY}/doktori/frontend:${TAG}"
+              echo "${REGISTRY}/doktori/frontend:develop-${ARCH}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          else
+            TAG="sha-${SHORT_SHA}-${ARCH}"
+            {
+              echo "tags<<EOF"
+              echo "${REGISTRY}/doktori/frontend:${TAG}"
+              echo "${REGISTRY}/doktori/frontend:latest-${ARCH}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          fi
+          echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare frontend build env file
+        run: |
+          cat <<'EOF' > .env.build
+          NEXT_PUBLIC_API_BASE_URL=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_API_BASE_URL_PROD || secrets.NEXT_PUBLIC_API_BASE_URL_DEV }}
+          NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_DEV }}
+          NEXT_PUBLIC_CHAT_WS_PATH=${{ secrets.NEXT_PUBLIC_CHAT_WS_PATH_DEV }}
+          NEXT_PUBLIC_FIREBASE_API_KEY=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_API_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_API_KEY_DEV }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_PROD || secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_DEV }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_PROD || secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_DEV }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD || secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_DEV }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD || secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_DEV }}
+          NEXT_PUBLIC_GA_ID=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_GA_ID_PROD || secrets.NEXT_PUBLIC_GA_ID_DEV }}
+          NEXT_PUBLIC_FIREBASE_APPID=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_APPID_PROD || secrets.NEXT_PUBLIC_FIREBASE_APPID_DEV }}
+          NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_DEV }}
+          NEXT_PUBLIC_SENTRY_DSN=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_SENTRY_DSN_PROD || secrets.NEXT_PUBLIC_SENTRY_DSN_DEV }}
+          NEXT_PUBLIC_SENTRY_ENV=${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+          EOF
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          target: runner
+          tags: ${{ steps.meta.outputs.tags }}
+          secret-files: |
+            frontend_env=.env.build
+
   deploy-dev:
-    needs: build-and-push
+    needs: build-and-push-arm64
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
@@ -182,7 +262,7 @@ jobs:
 
       - name: Deploy to Dev via SSM
         run: |
-          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push.outputs.image-tag }}" '[
+          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push-arm64.outputs.image-tag }}" '[
             "set -e",
             ("export ECR_REGISTRY=" + $registry),
             ("export IMAGE_URI=" + $registry + "/doktori/frontend:" + $tag),
@@ -262,7 +342,7 @@ jobs:
 
   deploy-staging:
     needs:
-      - build-and-push
+      - build-and-push-amd64
       - deploy-dev
     if: github.ref == 'refs/heads/develop' && needs.deploy-dev.result == 'success'
     runs-on: ubuntu-latest
@@ -283,7 +363,7 @@ jobs:
             STAGING_INSTANCE_ID="i-0413e019ba1991aad"
           fi
 
-          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push.outputs.image-tag }}" '[
+          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push-amd64.outputs.image-tag }}" '[
             "set -e",
             ("export ECR_REGISTRY=" + $registry),
             ("export IMAGE_URI=" + $registry + "/doktori/frontend:" + $tag),
@@ -335,7 +415,7 @@ jobs:
           exit 1
 
   deploy-prod:
-    needs: build-and-push
+    needs: build-and-push-amd64
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -351,7 +431,7 @@ jobs:
       - name: Deploy to Prod via SSM
         run: |
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          TAG="${{ needs.build-and-push.outputs.image-tag }}"
+          TAG="${{ needs.build-and-push-amd64.outputs.image-tag }}"
 
           COMMANDS=$(jq -n --arg registry "$REGISTRY" --arg tag "$TAG" '[
             "set -e",
