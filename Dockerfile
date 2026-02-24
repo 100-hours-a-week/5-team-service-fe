@@ -5,6 +5,7 @@ FROM node:20-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
+RUN corepack prepare pnpm@9.15.9 --activate
 
 FROM base AS deps
 WORKDIR /app
