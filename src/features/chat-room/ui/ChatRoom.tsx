@@ -25,6 +25,9 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   const [isDiscussionEnded, setIsDiscussionEnded] = useState(false);
 
   const roomTitle = roomInfo?.topic ?? `채팅방 #${roomId}`;
+  const visibleMessages = messages.filter(
+    (message) => message.messageType === "TEXT" && Boolean(message.textMessage?.trim()),
+  );
 
   useEffect(() => {
     const container = messageListRef.current;
@@ -73,7 +76,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
               {!isBootstrapping && bootstrapError ? (
                 <p className="text-center text-sm text-red-500">{bootstrapError}</p>
               ) : null}
-              {messages.map((message) => {
+              {visibleMessages.map((message) => {
                 const isMine = Boolean(
                   profile?.nickname &&
                   message.senderNickname &&
@@ -95,7 +98,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
                   </div>
                 );
               })}
-              {!isBootstrapping && !bootstrapError && messages.length === 0 ? (
+              {!isBootstrapping && !bootstrapError && visibleMessages.length === 0 ? (
                 <p className="text-center text-caption text-gray-400">아직 메시지가 없습니다.</p>
               ) : null}
             </div>
