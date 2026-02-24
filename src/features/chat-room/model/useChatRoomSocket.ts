@@ -14,68 +14,8 @@ import getChatRoomInfo from "../api/get-chat-room-info";
 import { GetChatRoomInfoResponse } from "../api/get-chat-room-info/types";
 import { getChatMessage } from "../api/get-chat-messages";
 
-function toMessage(payload: unknown, fallbackId: number): ChatRoomMessageInbound | null {
-  if (!payload || typeof payload !== "object") return null;
-  const candidate = payload as Record<string, unknown>;
-
-  const messageIdRaw = candidate.messageId ?? candidate.id ?? fallbackId;
-  const messageId =
-    typeof messageIdRaw === "number"
-      ? messageIdRaw
-      : Number.isFinite(Number(messageIdRaw))
-        ? Number(messageIdRaw)
-        : fallbackId;
-
-  const senderIdRaw = candidate.senderId ?? candidate.memberId ?? 0;
-  const senderId =
-    typeof senderIdRaw === "number"
-      ? senderIdRaw
-      : Number.isFinite(Number(senderIdRaw))
-        ? Number(senderIdRaw)
-        : 0;
-
-  const senderNicknameRaw =
-    candidate.senderNickname ??
-    candidate.nickname ??
-    (typeof candidate.sender === "object" && candidate.sender
-      ? (candidate.sender as Record<string, unknown>).nickname
-      : null);
-
-  const messageTypeRaw = candidate.messageType;
-  const messageType = messageTypeRaw === "FILE" ? "FILE" : "TEXT";
-
-  const textMessageRaw = candidate.textMessage ?? candidate.content ?? candidate.message ?? null;
-  const filePathRaw = candidate.filePath ?? candidate.fileUrl ?? null;
-  const createdAtRaw = candidate.createdAt ?? candidate.sentAt ?? candidate.timestamp ?? "";
-
-  return {
-    messageId,
-    senderId,
-    senderNickname: typeof senderNicknameRaw === "string" ? senderNicknameRaw : "알 수 없음",
-    messageType,
-    textMessage: typeof textMessageRaw === "string" ? textMessageRaw : null,
-    filePath: typeof filePathRaw === "string" ? filePathRaw : null,
-    createdAt: typeof createdAtRaw === "string" ? createdAtRaw : "",
-  };
-}
-
-function extractMessages(payload: unknown): ChatRoomMessageInbound[] {
-  if (!payload) return [];
-
-  const rawItems = Array.isArray(payload)
-    ? payload
-    : (() => {
-        if (typeof payload !== "object" || !payload) return [];
-        const obj = payload as Record<string, unknown>;
-        if (Array.isArray(obj.messages)) return obj.messages;
-        if (Array.isArray(obj.items)) return obj.items;
-        if (Array.isArray(obj.content)) return obj.content;
-        return [];
-      })();
-
-  const normalized = rawItems
-    .map((item, index) => toMessage(item, index + 1))
-    .filter((item): item is ChatRoomMessageInbound => item !== null);
+function extractMessages(messages: ChatRoomMessageInbound[]): ChatRoomMessageInbound[] {
+  const normalized = messages.filter((item): item is ChatRoomMessageInbound => item !== null);
 
   return normalized.sort((a, b) => {
     if (a.messageId !== b.messageId) return a.messageId - b.messageId;
@@ -120,7 +60,7 @@ export function useChatRoomSocket(roomId: number) {
       try {
         const restoredMessages = await getChatMessage({ roomId: roomId });
         if (!cancelled) {
-          setMessages(extractMessages(restoredMessages));
+          setMessages(extractMessages(restoredMessages.messages));
         }
       } catch (error) {
         if (!cancelled) {
