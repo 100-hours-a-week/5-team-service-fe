@@ -136,6 +136,8 @@ jobs:
         run: |
           cat <<'EOF' > .env.build
           NEXT_PUBLIC_API_BASE_URL=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_API_BASE_URL_PROD || secrets.NEXT_PUBLIC_API_BASE_URL_DEV }}
+          NEXT_PUBLIC_CHAT_BASE_URL=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_CHAT_BASE_URL_PROD || secrets.NEXT_PUBLIC_CHAT_BASE_URL_DEV }}
+          NEXT_PUBLIC_CHAT_WS_PATH=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_CHAT_WS_PATH_PROD || secrets.NEXT_PUBLIC_CHAT_WS_PATH_DEV }}
           NEXT_PUBLIC_FIREBASE_API_KEY=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_API_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_API_KEY_DEV }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_PROD || secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_DEV }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_PROD || secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_DEV }}
