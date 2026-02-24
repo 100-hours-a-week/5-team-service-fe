@@ -1,3 +1,8 @@
+export type Member = {
+  nickname: string;
+  profileImageUrl: string;
+};
+
 export type Chat = {
   roomId: number;
   topic: string;
