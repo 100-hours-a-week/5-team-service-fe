@@ -14,12 +14,12 @@ function resolveApiBaseUrl() {
 }
 
 export function resolveStompConnectOptions(): ConnectOptions | null {
-  const apiBaseUrl = resolveApiBaseUrl();
-  if (!apiBaseUrl) return null;
+  // const apiBaseUrl = resolveApiBaseUrl();
+  // if (!apiBaseUrl) return null;
 
   return {
-    apiBaseUrl,
-    wsPath: process.env.NEXT_PUBLIC_CHAT_WS_PATH ?? "/ws/chat",
+    apiBaseUrl: "https://dev.doktori.kr",
+    wsPath: "/ws/chat",
     getAccessToken: () => authStore.getAccessToken(),
     reconnectDelay: 3000,
     heartbeatIncoming: 10000,
