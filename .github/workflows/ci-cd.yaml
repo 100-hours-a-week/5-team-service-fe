@@ -114,11 +114,16 @@ jobs:
         id: meta
         run: |
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
           if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            TAG="develop"
-            echo "tags=${REGISTRY}/doktori/frontend:develop" >> $GITHUB_OUTPUT
+            TAG="sha-${SHORT_SHA}"
+            {
+              echo "tags<<EOF"
+              echo "${REGISTRY}/doktori/frontend:sha-${SHORT_SHA}"
+              echo "${REGISTRY}/doktori/frontend:develop"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
-            SHORT_SHA="${GITHUB_SHA:0:7}"
             TAG="sha-${SHORT_SHA}"
             {
               echo "tags<<EOF"
@@ -177,10 +182,12 @@ jobs:
 
       - name: Deploy to Dev via SSM
         run: |
-          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" '[
+          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push.outputs.image-tag }}" '[
             "set -e",
             ("export ECR_REGISTRY=" + $registry),
-            "docker compose -f /home/ubuntu/app/docker-compose.yml pull frontend",
+            ("export IMAGE_URI=" + $registry + "/doktori/frontend:" + $tag),
+            "docker pull $IMAGE_URI",
+            "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:develop",
             "docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend",
             "docker image prune -f"
           ]')
@@ -249,6 +256,63 @@ jobs:
                  }]
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }} || true
+
+  deploy-staging:
+    needs:
+      - build-and-push
+      - deploy-dev
+    if: github.ref == 'refs/heads/develop' && needs.deploy-dev.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Deploy to Staging via SSM
+        run: |
+          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push.outputs.image-tag }}" '[
+            "set -e",
+            ("export ECR_REGISTRY=" + $registry),
+            ("export IMAGE_URI=" + $registry + "/doktori/frontend:" + $tag),
+            "docker pull $IMAGE_URI",
+            "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:develop",
+            "docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend",
+            "docker image prune -f"
+          ]')
+
+          CMD_ID=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Environment,Values=prod" "Key=tag:Service,Values=front" \
+            --parameters "{\"commands\": $COMMANDS}" \
+            --timeout-seconds 300 \
+            --comment "deploy staging frontend ${{ github.sha }}" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command: $CMD_ID"
+
+          for i in $(seq 1 60); do
+            sleep 5
+            STATUS=$(aws ssm list-command-invocations \
+              --command-id "$CMD_ID" \
+              --query "CommandInvocations[0].Status" \
+              --output text 2>/dev/null || echo "Pending")
+            echo "[$i/60] $STATUS"
+            case "$STATUS" in
+              Success) exit 0 ;;
+              Failed|Cancelled|TimedOut|DeliveryTimedOut)
+                aws ssm list-command-invocations --command-id "$CMD_ID" --details \
+                  --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
+                exit 1 ;;
+            esac
+          done
+          echo "::error::SSM command timed out"
+          exit 1
 
   deploy-prod:
     needs: build-and-push
