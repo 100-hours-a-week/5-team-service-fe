@@ -278,6 +278,11 @@ jobs:
 
       - name: Deploy to Staging via SSM
         run: |
+          STAGING_INSTANCE_ID="${{ secrets.STAGING_FRONTEND_INSTANCE_ID }}"
+          if [ -z "$STAGING_INSTANCE_ID" ]; then
+            STAGING_INSTANCE_ID="i-0413e019ba1991aad"
+          fi
+
           COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push.outputs.image-tag }}" '[
             "set -e",
             ("export ECR_REGISTRY=" + $registry),
@@ -291,16 +296,22 @@ jobs:
             "docker image prune -f"
           ]')
 
-          CMD_ID=$(aws ssm send-command \
+          RESP=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Environment,Values=prod" "Key=tag:Service,Values=front" \
+            --instance-ids "$STAGING_INSTANCE_ID" \
             --parameters "{\"commands\": $COMMANDS}" \
             --timeout-seconds 300 \
             --comment "deploy staging frontend ${{ github.sha }}" \
-            --query "Command.CommandId" \
-            --output text)
+            --output json)
 
-          echo "SSM Command: $CMD_ID"
+          CMD_ID=$(echo "$RESP" | jq -r '.Command.CommandId')
+          TARGET_COUNT=$(echo "$RESP" | jq -r '.Command.TargetCount // 0')
+          echo "SSM Command: $CMD_ID (targets: $TARGET_COUNT)"
+          if [ "$TARGET_COUNT" -eq 0 ]; then
+            echo "::error::No SSM targets matched for staging deploy"
+            exit 1
+          fi
+
 
           for i in $(seq 1 60); do
             sleep 5
@@ -308,6 +319,9 @@ jobs:
               --command-id "$CMD_ID" \
               --query "CommandInvocations[0].Status" \
               --output text 2>/dev/null || echo "Pending")
+            if [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
+              STATUS="Pending"
+            fi
             echo "[$i/60] $STATUS"
             case "$STATUS" in
               Success) exit 0 ;;
