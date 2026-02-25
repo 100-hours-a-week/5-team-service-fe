@@ -187,7 +187,7 @@ jobs:
             "docker pull $IMAGE_URI",
             "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:staging",
             "if docker compose version >/dev/null 2>&1; then docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; else docker-compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; fi",
-            "docker images $ECR_REGISTRY/doktori/frontend --format '{{.Repository}}:{{.Tag}}' | grep -E ':sha-.*-arm64$' | awk 'NR>4 {print $1}' | xargs -r docker rmi || true",
+            "docker images $ECR_REGISTRY/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true",
             "docker image prune -f"
           ]')
 
