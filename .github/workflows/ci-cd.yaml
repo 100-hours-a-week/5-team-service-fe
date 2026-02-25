@@ -3,34 +3,28 @@ name: Frontend CI/CD
 on:
   push:
     branches:
-      - develop
-      - main
+      - staging
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
   pull_request:
     branches:
-      - develop
-      - main
+      - staging
+    types:
+      - closed
 
 concurrency:
   group: frontend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check-source-branch:
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate source branch
-        run: |
-          if [ "${{ github.head_ref }}" != "develop" ] && [[ "${{ github.head_ref }}" != hotfix/* ]]; then
-            echo "❌ Error: Only 'develop' or 'hotfix/*' branches can be merged into 'main'"
-            echo "Source branch: ${{ github.head_ref }}"
-            exit 1
-          fi
-          echo "✅ Source branch validation passed: ${{ github.head_ref }}"
-
   ci:
-    needs: [check-source-branch]
-    if: always() && (needs.check-source-branch.result == 'success' || needs.check-source-branch.result == 'skipped')
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -39,7 +33,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.15.9
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,36 +50,6 @@ jobs:
       - name: Check Prettier formatting
         run: pnpm run format:check
 
-      - name: Build Next.js app (includes type check)
-        run: pnpm run build
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_API_BASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_API_BASE_URL_PROD || secrets.NEXT_PUBLIC_API_BASE_URL_DEV }}
-
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_API_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_API_KEY_DEV }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_PROD || secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_DEV }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_PROD || secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_DEV }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD || secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_DEV }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD || secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_DEV }}
-          NEXT_PUBLIC_GA_ID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_GA_ID_PROD || secrets.NEXT_PUBLIC_GA_ID_DEV }}
-          NEXT_PUBLIC_FIREBASE_APPID: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_APPID_PROD || secrets.NEXT_PUBLIC_FIREBASE_APPID_DEV }}
-          NEXT_PUBLIC_FIREBASE_VAPID_KEY: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_PROD || secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_DEV }}
-          NEXT_PUBLIC_SENTRY_DSN: ${{ github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_SENTRY_DSN_PROD || secrets.NEXT_PUBLIC_SENTRY_DSN_DEV }}
-          NEXT_PUBLIC_SENTRY_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-
-      - name: Prepare build artifact (tar.gz)
-        if: github.event_name == 'push'
-        run: |
-          tar -czf frontend-build.tar.gz .next public package.json pnpm-lock.yaml next.config.ts
-
-      - name: Upload Build Artifact
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend-build.tar.gz
-          retention-days: 1
-
       - name: Notify Discord on failure
         if: failure()
         run: |
@@ -99,7 +63,7 @@ jobs:
           curl -H "Content-Type: application/json" \
                -X POST \
                -d "{
-                 \"content\": \"❌ **Frontend CI 빌드 실패**\",
+                 \"content\": \"❌ **Frontend CI 실패**\",
                  \"embeds\": [{
                    \"title\": \"🔴 빌드 실패 알림\",
                    \"color\": 15158528,
@@ -116,133 +80,174 @@ jobs:
                }" \
                ${{ secrets.DISCORD_WEBHOOK_URL }} || true
 
-  deploy:
+  build-and-push-arm64:
     needs: ci
     if: |
-      always() &&
-      needs.ci.result == 'success' &&
-      github.event_name == 'push'
-    runs-on: ubuntu-latest
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image-tag: ${{ steps.meta.outputs.image-tag }}
     steps:
-      - name: Set environment
-        id: env
-        run: |
-          set -euo pipefail
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "env_name=prod" >> $GITHUB_OUTPUT
-            echo "deploy_target=lightsail" >> $GITHUB_OUTPUT
-            echo "ssh_host=${{ secrets.PROD_LIGHTSAIL_HOST }}" >> $GITHUB_OUTPUT
-            echo "lightsail_instance_name=${{ secrets.PROD_LIGHTSAIL_INSTANCE_NAME }}" >> $GITHUB_OUTPUT
-          else
-            echo "env_name=develop" >> $GITHUB_OUTPUT
-            echo "deploy_target=ec2" >> $GITHUB_OUTPUT
-            echo "ssh_host=${{ secrets.DEV_EC2_HOST }}" >> $GITHUB_OUTPUT
-            echo "sg_id=${{ secrets.AWS_SG_ID_DEV }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-build
-          path: frontend-dist
-
-      - name: Package for Deployment
-        run: |
-          mv frontend-dist/frontend-build.tar.gz ./frontend-build.tar.gz
-
-      # --- [1] GitHub Actions 서버의 공인 IP 실시간 확인 ---
-      - name: Get GitHub IP
-        id: ip
-        run: |
-          set -euo pipefail
-          IPV4="$(curl -s https://checkip.amazonaws.com | tr -d '\n')"
-          echo "ipv4=$IPV4" >> $GITHUB_OUTPUT
-
-      # --- [2] AWS 자격 증명 설정 ---
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
-      # --- [3-a] DEV(EC2): 보안 그룹 22번 포트 한시적 허용 ---
-      - name: Add GitHub IP to EC2 Security Group (SSH)
-        if: ${{ steps.env.outputs.deploy_target == 'ec2' }}
-        run: |
-          aws ec2 authorize-security-group-ingress \
-            --group-id ${{ steps.env.outputs.sg_id }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.ip.outputs.ipv4 }}/32 || true
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
 
-      # --- [3-b] PROD(Lightsail): 22번 포트 한시적 허용 ---
-      - name: Allow GitHub IP on Lightsail (SSH)
-        if: ${{ steps.env.outputs.deploy_target == 'lightsail' }}
+      - name: Set image metadata
+        id: meta
         run: |
-          aws lightsail open-instance-public-ports \
-            --instance-name ${{ steps.env.outputs.lightsail_instance_name }} \
-            --port-info fromPort=22,toPort=22,protocol=tcp,cidrs=${{ steps.ip.outputs.ipv4 }}/32 || true
+          REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          ARCH="arm64"
+          TAG="sha-${SHORT_SHA}-${ARCH}"
+          {
+            echo "tags<<EOF"
+            echo "${REGISTRY}/doktori/frontend:${TAG}"
+            echo "${REGISTRY}/doktori/frontend:staging-${ARCH}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+          echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
 
-      - name: Transfer to Server
-        uses: appleboy/scp-action@v0.1.7
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare frontend build env file
+        run: |
+          cat <<'EOF' > .env.build
+          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_PROD }}
+          NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_DEV }}
+          NEXT_PUBLIC_CHAT_WS_PATH=${{ secrets.NEXT_PUBLIC_CHAT_WS_PATH_DEV }}
+          NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY_DEV }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_DEV }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID_DEV }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_DEV }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_DEV }}
+          NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID_PROD }}
+          NEXT_PUBLIC_FIREBASE_APPID=${{ secrets.NEXT_PUBLIC_FIREBASE_APPID_DEV }}
+          NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY_DEV }}
+          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD }}
+          NEXT_PUBLIC_SENTRY_ENV=staging
+          EOF
+
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v6
         with:
-          host: ${{ steps.env.outputs.ssh_host }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ steps.env.outputs.env_name == 'prod' && secrets.EC2_SSH_KEY || secrets.DEV_EC2_SSH_KEY }}
-          source: "frontend-build.tar.gz"
-          target: "/home/ubuntu/app/artifacts/fe"
-          overwrite: true
+          context: .
+          platforms: linux/arm64
+          push: true
+          target: runner
+          tags: ${{ steps.meta.outputs.tags }}
+          secret-files: |
+            frontend_env=.env.build
 
-      - name: Deploy
-        uses: appleboy/ssh-action@v1.0.3
+  deploy-staging:
+    needs: build-and-push-arm64
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ steps.env.outputs.ssh_host }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ steps.env.outputs.env_name == 'prod' && secrets.EC2_SSH_KEY || secrets.DEV_EC2_SSH_KEY }}
-          script: bash /home/ubuntu/app/deploy.sh fe ${{ steps.env.outputs.env_name }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
 
-      # --- [4-a] DEV(EC2): 보안 그룹에서 IP 제거 (항상 실행) ---
-      - name: Remove GitHub IP from EC2 Security Group (SSH)
-        if: always() && steps.env.outputs.deploy_target == 'ec2'
+      - name: Deploy to Staging via SSM
         run: |
-          aws ec2 revoke-security-group-ingress \
-            --group-id ${{ steps.env.outputs.sg_id }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.ip.outputs.ipv4 }}/32 || true
+          STAGING_INSTANCE_ID="i-0212b65a2dfba8335"
 
-      # --- [4-b] PROD(Lightsail): IP 제거 (항상 실행) ---
-      - name: Close GitHub IP on Lightsail (SSH)
-        if: always() && steps.env.outputs.deploy_target == 'lightsail'
-        run: |
-          aws lightsail close-instance-public-ports \
-            --instance-name ${{ steps.env.outputs.lightsail_instance_name }} \
-            --port-info fromPort=22,toPort=22,protocol=tcp,cidrs=${{ steps.ip.outputs.ipv4 }}/32 || true
+          COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push-arm64.outputs.image-tag }}" '[
+            "set -e",
+            ("export ECR_REGISTRY=" + $registry),
+            ("export IMAGE_URI=" + $registry + "/doktori/frontend:" + $tag),
+            "export DOCKER_CONFIG=/tmp/.docker",
+            "mkdir -p $DOCKER_CONFIG",
+            "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY",
+            "docker pull $IMAGE_URI",
+            "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:staging-arm64",
+            "if docker compose version >/dev/null 2>&1; then docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; else docker-compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; fi",
+            "docker image prune -f"
+          ]')
+
+          RESP=$(aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --instance-ids "$STAGING_INSTANCE_ID" \
+            --parameters "{\"commands\": $COMMANDS}" \
+            --timeout-seconds 300 \
+            --comment "deploy staging frontend ${{ github.sha }}" \
+            --output json)
+
+          CMD_ID=$(echo "$RESP" | jq -r '.Command.CommandId')
+          TARGET_COUNT=$(echo "$RESP" | jq -r '.Command.TargetCount // 0')
+          echo "SSM Command: $CMD_ID (targets: $TARGET_COUNT)"
+          if [ "$TARGET_COUNT" -eq 0 ]; then
+            echo "::error::No SSM targets matched for staging deploy"
+            exit 1
+          fi
+
+
+          for i in $(seq 1 60); do
+            sleep 5
+            STATUS=$(aws ssm list-command-invocations \
+              --command-id "$CMD_ID" \
+              --query "CommandInvocations[0].Status" \
+              --output text 2>/dev/null || echo "Pending")
+            if [ -z "$STATUS" ] || [ "$STATUS" = "None" ]; then
+              STATUS="Pending"
+            fi
+            echo "[$i/60] $STATUS"
+            case "$STATUS" in
+              Success) exit 0 ;;
+              Failed|Cancelled|TimedOut|DeliveryTimedOut)
+                aws ssm list-command-invocations --command-id "$CMD_ID" --details \
+                  --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
+                exit 1 ;;
+            esac
+          done
+          echo "::error::SSM command timed out"
+          exit 1
 
       - name: Notify Discord
         if: always()
         run: |
-          # 환경별 설정
-          ENV_NAME="${{ steps.env.outputs.env_name }}"
-          if [ "$ENV_NAME" == "prod" ]; then
-            ENV_EMOJI="🚀"
-            ENV_LABEL="Production"
-          else
-            ENV_EMOJI="🔧"
-            ENV_LABEL="Development"
-          fi
+          ENV_NAME="staging"
+          ENV_EMOJI="🧪"
+          ENV_LABEL="Staging"
 
-          # 커밋 정보
           COMMIT_SHA="${{ github.sha }}"
           SHORT_SHA="${COMMIT_SHA:0:7}"
-          COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
-          COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           ACTIONS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          # 상태별 색상 및 메시지
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_MSG="${{ github.event.pull_request.title }}"
+            COMMIT_AUTHOR="${{ github.event.pull_request.user.login }}"
+          else
+            COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
+            COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+          fi
+
           if [ "${{ job.status }}" == "success" ]; then
             COLOR=3066993
             STATUS_EMOJI="✅"
@@ -264,7 +269,7 @@ jobs:
                      {\"name\": \"📦 저장소\", \"value\": \"\`${{ github.repository }}\`\", \"inline\": true},
                      {\"name\": \"🌿 브랜치\", \"value\": \"\`${{ github.ref_name }}\`\", \"inline\": true},
                      {\"name\": \"🔖 커밋\", \"value\": \"[\`$SHORT_SHA\`]($COMMIT_URL)\", \"inline\": true},
-                     {\"name\": \"💬 커밋 메시지\", \"value\": \"$COMMIT_MSG\", \"inline\": false},
+                     {\"name\": \"💬 메시지\", \"value\": \"$COMMIT_MSG\", \"inline\": false},
                      {\"name\": \"👤 작성자\", \"value\": \"$COMMIT_AUTHOR\", \"inline\": true},
                      {\"name\": \"📋 상세 로그\", \"value\": \"[Actions에서 확인]($ACTIONS_URL)\", \"inline\": true}
                    ],
