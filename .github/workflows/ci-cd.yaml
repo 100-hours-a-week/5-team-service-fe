@@ -279,10 +279,7 @@ jobs:
 
       - name: Deploy to Staging via SSM
         run: |
-          STAGING_INSTANCE_ID="${{ secrets.STAGING_FRONTEND_INSTANCE_ID }}"
-          if [ -z "$STAGING_INSTANCE_ID" ]; then
-            STAGING_INSTANCE_ID="i-0413e019ba1991aad"
-          fi
+          STAGING_INSTANCE_ID="i-0212b65a2dfba8335"
 
           COMMANDS=$(jq -n --arg registry "${{ secrets.ECR_REGISTRY }}" --arg tag "${{ needs.build-and-push-arm64.outputs.image-tag }}" '[
             "set -e",
