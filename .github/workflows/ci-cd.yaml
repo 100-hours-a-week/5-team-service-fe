@@ -186,6 +186,8 @@ jobs:
             "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY",
             "docker pull $IMAGE_URI",
             "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:staging",
+            "docker rm -f frontend 2>/dev/null || true",
+            "docker ps -aq --filter \"name=_frontend$\" | xargs -r docker rm -f || true",
             "if docker compose version >/dev/null 2>&1; then docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; else docker-compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; fi",
             "docker images $ECR_REGISTRY/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true",
             "docker image prune -f"
