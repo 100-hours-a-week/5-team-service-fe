@@ -1,29 +1,41 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ROUND_DURATION_SECONDS } from "../model/config";
-import { useRouter } from "next/navigation";
 import { useChatRoomSocket } from "../model/useChatRoomSocket";
 import { useUserProfileQuery } from "@/entities/user/model/useUserProfileQuery";
 import ChatRoomTopSection from "./ChatRoomTopSection";
 import ChatRoomRoundBar from "./ChatRoomRoundBar";
+import ChatRoomHostActions from "./ChatRoomHostActions";
 import ChatRoomComposer from "./ChatRoomComposer";
 import ChatRoomMyBubble from "./ChatRoomMyBubble";
 import ChatRoomOtherBubble from "./ChatRoomOtherBubble";
+import ChatRoomInfoModal from "./ChatRoomInfoModal";
+import ChatRoomLeaveConfirmModal from "./ChatRoomLeaveConfirmModal";
 import formatChatTime from "../lib/formatChatTime";
 
 export default function ChatRoom({ roomId }: { roomId: number }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile } = useUserProfileQuery();
-  const { roomInfo, messages, sendText, leaveRoom, isConnected, isBootstrapping, bootstrapError } =
-    useChatRoomSocket(roomId);
+  const {
+    roomInfo,
+    messages,
+    currentRound,
+    sendText,
+    leaveRoom,
+    isConnected,
+    isBootstrapping,
+    bootstrapError,
+  } = useChatRoomSocket(roomId);
   const [text, setText] = useState("");
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
-  const [currentRound, setCurrentRound] = useState(1);
-  const [remainingRoundSeconds, setRemainingRoundSeconds] = useState(ROUND_DURATION_SECONDS);
-  const [isDiscussionEnded, setIsDiscussionEnded] = useState(false);
 
+  const isHost = searchParams.get("host") === "1" || searchParams.get("host") === "true";
   const roomTitle = roomInfo?.topic ?? `채팅방 #${roomId}`;
   const visibleMessages = messages.filter(
     (message) => message.messageType === "TEXT" && Boolean(message.textMessage?.trim()),
@@ -42,6 +54,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   };
 
   const handleLeave = async () => {
+    setIsLeaveConfirmOpen(false);
     setIsLeaving(true);
     await leaveRoom();
     router.push("/chats");
@@ -54,15 +67,17 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         isConnected={isConnected}
         roomTitle={roomTitle}
         isLeaving={isLeaving}
-        onOpenGuide={() => {}}
-        onOpenLeaveConfirm={() => {}}
+        onOpenGuide={() => setIsGuideModalOpen(true)}
+        onOpenLeaveConfirm={() => setIsLeaveConfirmOpen(true)}
       />
 
       <section className="relative -mt-7 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-gray-purple shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
         <ChatRoomRoundBar
           currentRound={currentRound}
-          remainingRoundSeconds={remainingRoundSeconds}
+          remainingRoundSeconds={ROUND_DURATION_SECONDS}
         />
+
+        {isHost ? <ChatRoomHostActions /> : null}
 
         <main
           ref={messageListRef}
@@ -70,12 +85,6 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         >
           <div className="flex min-h-full flex-col justify-end">
             <div className="space-y-3">
-              {isBootstrapping ? (
-                <p className="text-center text-sm text-gray-400">채팅방을 불러오는 중입니다.</p>
-              ) : null}
-              {!isBootstrapping && bootstrapError ? (
-                <p className="text-center text-sm text-red-500">{bootstrapError}</p>
-              ) : null}
               {visibleMessages.map((message) => {
                 const isMine = Boolean(
                   profile?.nickname &&
@@ -98,8 +107,14 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
                   </div>
                 );
               })}
+              {isBootstrapping ? (
+                <p className="text-center text-sm text-gray-400">채팅방을 불러오는 중입니다.</p>
+              ) : null}
               {!isBootstrapping && !bootstrapError && visibleMessages.length === 0 ? (
                 <p className="text-center text-caption text-gray-400">아직 메시지가 없습니다.</p>
+              ) : null}
+              {!isBootstrapping && bootstrapError ? (
+                <p className="text-center text-sm text-red-500">{bootstrapError}</p>
               ) : null}
             </div>
           </div>
@@ -108,11 +123,27 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         <ChatRoomComposer
           text={text}
           isConnected={isConnected}
-          isDiscussionEnded={isDiscussionEnded}
+          isDiscussionEnded={false}
           onChangeText={setText}
           onSubmit={handleSubmit}
         />
       </section>
+
+      <ChatRoomInfoModal
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+        currentRound={currentRound}
+        isDiscussionEnded={false}
+        agreeMembers={roomInfo?.agreeMembers ?? []}
+        disagreeMembers={roomInfo?.disagreeMembers ?? []}
+      />
+
+      <ChatRoomLeaveConfirmModal
+        isOpen={isLeaveConfirmOpen}
+        isLeaving={isLeaving}
+        onClose={() => setIsLeaveConfirmOpen(false)}
+        onConfirm={() => void handleLeave()}
+      />
     </div>
   );
 }
