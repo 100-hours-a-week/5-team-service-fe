@@ -20,4 +20,3 @@ export type ChatLobbyInfo = {
 export type ChatLobbyStartResponse = {
   roomId?: number;
 };
-
