@@ -1,4 +1,4 @@
-export const ROUND_DURATION_SECONDS = 100 * 60;
+export const ROUND_DURATION_SECONDS = 5 * 60;
 export const TOTAL_ROUNDS = 3;
 
 export const ROUND_GUIDE = [
