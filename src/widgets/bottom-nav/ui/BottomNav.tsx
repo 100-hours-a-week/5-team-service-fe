@@ -15,7 +15,17 @@ export default function BottomNav() {
   return (
     <nav className="relative h-16">
       {isCreateButtonShown ? (
-        <div className="absolute bottom-22 right-7 z-20 flex flex-col items-end">
+        <button
+          type="button"
+          aria-label="빠른 생성 메뉴 닫기"
+          onClick={() => setIsExpanded(false)}
+          className={`fixed inset-y-0 left-1/2 z-40 w-full max-w-[500px] -translate-x-1/2 bg-black/20 transition-opacity duration-200 ${
+            isExpanded ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        />
+      ) : null}
+      {isCreateButtonShown ? (
+        <div className="absolute bottom-22 right-7 z-50 flex flex-col items-end">
           <div
             className={`mb-3 flex flex-col items-end gap-3 transition-all duration-200 ${
               isExpanded ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
@@ -26,7 +36,7 @@ export default function BottomNav() {
                 key={item.key}
                 href={item.href}
                 onClick={() => setIsExpanded(false)}
-                className={`flex translate-y-0 gap-1 items-center rounded-full border border-1 border-primary-purple bg-white text-label !font-[600] text-gray-700 ring-1 ring-gray-100 transition-all duration-200 ${
+                className={`flex translate-y-0 gap-1 items-center rounded-full border border-2 border-primary-purple bg-white text-label !font-[600] text-gray-700 transition-all duration-200 ${
                   isExpanded ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
                 }`}
                 style={{ transitionDelay: isExpanded ? `${index * 45}ms` : "0ms" }}

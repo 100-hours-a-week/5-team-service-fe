@@ -3,12 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import SearchBar, { Book } from "@/components/book/searchBar";
 import PageHeader from "@/components/layout/PageHeader";
+import { useCreateChatStore } from "@/features/create-chat/model/store";
 
 export default function BookSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnTo = searchParams?.get("returnTo") ?? "/meeting/create/book";
-  const roundParam = searchParams?.get("round");
+  const setSelectedBook = useCreateChatStore((state) => state.setSelectedBook);
+  const returnTo = searchParams.get("returnTo") ?? "/meeting/create/book";
+  const roundParam = searchParams.get("round");
   const roundNo = roundParam ? Number(roundParam) : null;
 
   const handleSelect = (book: Book) => {
@@ -17,6 +19,10 @@ export default function BookSearch() {
       sessionStorage.setItem(key, JSON.stringify(book));
       router.push(`${returnTo}?round=${roundNo}`);
       return;
+    }
+
+    if (returnTo.startsWith("/chat/create")) {
+      setSelectedBook(book);
     }
 
     router.push(returnTo);
