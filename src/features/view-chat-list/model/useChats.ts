@@ -45,10 +45,12 @@ export default function useChats() {
     fetchNextPage();
   }, [inView, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const onClickChat = (index: number, roomId: number) => {
+  const onClickChat = (index: number, roomId: number, queryString?: string) => {
     const scroller = document.getElementById("app-scroll");
     const anchorY = scroller ? scroller.scrollTop : 0;
     saveChatListRestore({ clickedIndex: index, anchorY, size: pageSize });
+    const suffix = queryString ? `?${queryString}` : "";
+    router.push(`/chat/${roomId}/lobby${suffix}`);
   };
 
   const showInitSkeleton = isLoading && chats.length === 0;
