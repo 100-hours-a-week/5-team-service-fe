@@ -74,8 +74,30 @@ body {
   }
 }
 
+@keyframes confetti-burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.2);
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), var(--dy)) scale(1);
+  }
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 500ms ease-out;
+}
+
+.confetti-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  animation: confetti-burst 1400ms ease-out forwards;
 }
 
 @media (min-width: 1024px) {
