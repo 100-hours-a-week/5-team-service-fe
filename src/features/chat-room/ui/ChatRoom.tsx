@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ROUND_DURATION_SECONDS } from "../model/config";
+import { ROUND_DURATION_SECONDS, TOTAL_ROUNDS } from "../model/config";
 import { useChatRoomSocket } from "../model/useChatRoomSocket";
 import { useUserProfileQuery } from "@/entities/user/model/useUserProfileQuery";
 import ChatRoomTopSection from "./ChatRoomTopSection";
@@ -14,6 +14,8 @@ import ChatRoomOtherBubble from "./ChatRoomOtherBubble";
 import ChatRoomInfoModal from "./ChatRoomInfoModal";
 import ChatRoomLeaveConfirmModal from "./ChatRoomLeaveConfirmModal";
 import formatChatTime from "../lib/formatChatTime";
+import nextRound from "../api/next-round";
+import endChatRoom from "../api/end-chat-room";
 
 export default function ChatRoom({ roomId }: { roomId: number }) {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
     roomInfo,
     messages,
     currentRound,
+    roomEnded,
     sendText,
     leaveRoom,
     isConnected,
@@ -33,10 +36,17 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   const [isLeaving, setIsLeaving] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [isLeaveConfirmOpen, setIsLeaveConfirmOpen] = useState(false);
+  const [remainingRoundSeconds, setRemainingRoundSeconds] = useState(ROUND_DURATION_SECONDS);
+  const [isAdvancingRound, setIsAdvancingRound] = useState(false);
+  const [isEndingChat, setIsEndingChat] = useState(false);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  const autoTriggeredRoundRef = useRef<number | null>(null);
+  const hasSeenPositiveTimeRef = useRef(false);
 
   const isHost = searchParams.get("host") === "1" || searchParams.get("host") === "true";
   const roomTitle = roomInfo?.topic ?? `채팅방 #${roomId}`;
+  const canGoNextRound = currentRound < TOTAL_ROUNDS;
+  const canEndChat = currentRound === TOTAL_ROUNDS;
   const visibleMessages = messages.filter(
     (message) => message.messageType === "TEXT" && Boolean(message.textMessage?.trim()),
   );
@@ -46,6 +56,70 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
     if (!container) return;
     container.scrollTop = container.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    autoTriggeredRoundRef.current = null;
+    hasSeenPositiveTimeRef.current = false;
+    setRemainingRoundSeconds(ROUND_DURATION_SECONDS);
+  }, [currentRound]);
+
+  useEffect(() => {
+    if (roomEnded) return;
+    const timer = window.setInterval(() => {
+      setRemainingRoundSeconds((prev) => Math.max(prev - 1, 0));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [currentRound, roomEnded]);
+
+  useEffect(() => {
+    if (remainingRoundSeconds > 0) {
+      hasSeenPositiveTimeRef.current = true;
+    }
+  }, [remainingRoundSeconds]);
+
+  const handleNextRound = useCallback(async () => {
+    if (!isHost || !canGoNextRound || isAdvancingRound) return;
+
+    setIsAdvancingRound(true);
+    try {
+      await nextRound({ roomId });
+    } finally {
+      setIsAdvancingRound(false);
+    }
+  }, [canGoNextRound, isAdvancingRound, isHost, roomId]);
+
+  const handleEndChat = useCallback(async () => {
+    if (!isHost || !canEndChat || isEndingChat) return;
+
+    setIsEndingChat(true);
+    try {
+      await endChatRoom({ roomId });
+    } finally {
+      setIsEndingChat(false);
+    }
+  }, [canEndChat, isEndingChat, isHost, roomId]);
+
+  useEffect(() => {
+    if (!isHost || !canGoNextRound || isAdvancingRound) return;
+    if (remainingRoundSeconds > 0) return;
+    if (!hasSeenPositiveTimeRef.current) return;
+    if (autoTriggeredRoundRef.current === currentRound) return;
+
+    autoTriggeredRoundRef.current = currentRound;
+    void handleNextRound();
+  }, [
+    canGoNextRound,
+    currentRound,
+    handleNextRound,
+    isAdvancingRound,
+    isHost,
+    remainingRoundSeconds,
+  ]);
+
+  useEffect(() => {
+    if (!roomEnded) return;
+    router.replace(`/chat/${roomId}/result`);
+  }, [roomEnded, roomId, router]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -74,10 +148,19 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
       <section className="relative -mt-7 flex min-h-0 flex-1 flex-col rounded-t-[28px] bg-gray-purple shadow-[0_-10px_30px_rgba(15,23,42,0.08)]">
         <ChatRoomRoundBar
           currentRound={currentRound}
-          remainingRoundSeconds={ROUND_DURATION_SECONDS}
+          remainingRoundSeconds={remainingRoundSeconds}
         />
 
-        {isHost ? <ChatRoomHostActions /> : null}
+        {isHost ? (
+          <ChatRoomHostActions
+            canGoNextRound={canGoNextRound}
+            isAdvancingRound={isAdvancingRound}
+            onNextRound={() => void handleNextRound()}
+            canEndChat={canEndChat}
+            isEndingChat={isEndingChat}
+            onEndChat={() => void handleEndChat()}
+          />
+        ) : null}
 
         <main
           ref={messageListRef}
@@ -123,7 +206,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         <ChatRoomComposer
           text={text}
           isConnected={isConnected}
-          isDiscussionEnded={false}
+          isDiscussionEnded={roomEnded}
           onChangeText={setText}
           onSubmit={handleSubmit}
         />
