@@ -26,7 +26,7 @@ export const quickCreateItems = [
   {
     key: "create-chat",
     label: "채팅 토론 생성",
-    href: "/chats",
+    href: "/chat/create",
     Icon: ChatBubbleOvalLeftEllipsisIcon,
   },
 ] as const;
