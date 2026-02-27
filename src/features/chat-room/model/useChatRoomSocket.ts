@@ -26,6 +26,9 @@ function extractMessages(messages: ChatRoomMessageInbound[]): ChatRoomMessageInb
 export function useChatRoomSocket(roomId: number) {
   const [messages, setMessages] = useState<ChatRoomMessageInbound[]>([]);
   const [roomInfo, setRoomInfo] = useState<GetChatRoomInfoResponse | null>(null);
+  const [currentRound, setCurrentRound] = useState(1);
+  const [roundStartedAt, setRoundStartedAt] = useState<string | null>(null);
+  const [roomEnded, setRoomEnded] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -48,7 +51,12 @@ export function useChatRoomSocket(roomId: number) {
 
       try {
         const roomInfo = await getChatRoomInfo({ roomId });
-        if (!cancelled) setRoomInfo(roomInfo);
+        if (!cancelled) {
+          setRoomInfo(roomInfo);
+          if (roomInfo.startedAt) {
+            setRoundStartedAt(roomInfo.startedAt);
+          }
+        }
       } catch (error) {
         if (!cancelled) {
           setBootstrapError(
@@ -87,6 +95,26 @@ export function useChatRoomSocket(roomId: number) {
         const key = stompManager.subscribeJson<ChatRoomMessageInbound>(
           stompDestinations.topicChatRoom(roomId),
           (payload) => {
+            const payloadWithEvent = payload as ChatRoomMessageInbound & {
+              currentRound?: number;
+              startedAt?: string;
+              type?: string;
+            };
+
+            if (payloadWithEvent.type === "ROOM_ENDED") {
+              setRoomEnded(true);
+              return;
+            }
+
+            if (
+              typeof payloadWithEvent.currentRound === "number" &&
+              typeof payloadWithEvent.startedAt === "string"
+            ) {
+              setCurrentRound(payloadWithEvent.currentRound);
+              setRoundStartedAt(payloadWithEvent.startedAt);
+              return;
+            }
+
             setMessages((prev) => {
               if (prev.some((item) => item.messageId === payload.messageId)) {
                 return prev;
@@ -161,6 +189,9 @@ export function useChatRoomSocket(roomId: number) {
   return {
     roomInfo,
     messages,
+    currentRound,
+    roundStartedAt,
+    roomEnded,
     isBootstrapping,
     bootstrapError,
     chatError,
