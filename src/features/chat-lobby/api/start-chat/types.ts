@@ -5,7 +5,7 @@ export type StartChatRequest = {
 type Member = {
   nickname: string;
   profileImageUrl: string;
-}
+};
 
 export type StartChatResponse = {
   topic: string;
