@@ -5,10 +5,7 @@ import { Controller, FieldErrors, useFormContext } from "react-hook-form";
 import InputFieldFrame from "./InputFieldFrame";
 import { useEffect } from "react";
 import { useCreateChatStore } from "@/features/create-chat/model/store";
-import { useMeetingCreateStore } from "@/features/create-meeting/model/store";
 import BookSelectInput from "../input/BookInput";
-
-type BookStoreType = "chat" | "meeting";
 
 type BookSelectFieldProps = {
   name: string;
@@ -16,8 +13,6 @@ type BookSelectFieldProps = {
   helperText?: string;
   returnTo: string;
   emptyText: string;
-  storeType?: BookStoreType;
-  roundNo?: number;
 };
 
 const makeId = (name: string) => `field_${name.replace(/[.\[\]]/g, "_")}`;
@@ -28,32 +23,13 @@ export default function BookSelectField({
   helperText,
   returnTo,
   emptyText,
-  storeType = "chat",
-  roundNo,
 }: BookSelectFieldProps) {
   const {
     control,
     setValue,
     formState: { errors },
   } = useFormContext();
-  const chatSelectedBook = useCreateChatStore((state) => state.selectedBook);
-  const meetingRoundBook = useMeetingCreateStore((state) => {
-    if (!roundNo) return null;
-    return state.rounds.find((round) => round.roundNo === roundNo)?.book ?? null;
-  });
-  const selectedBook =
-    storeType === "meeting"
-      ? meetingRoundBook
-        ? {
-            isbn: meetingRoundBook.isbn,
-            title: meetingRoundBook.title,
-            authors: meetingRoundBook.authors,
-            publisher: meetingRoundBook.publisher,
-            thumbnailUrl: "",
-            publishedAt: "",
-          }
-        : null
-      : chatSelectedBook;
+  const selectedBook = useCreateChatStore((state) => state.selectedBook);
 
   useEffect(() => {
     if (!selectedBook?.isbn) return;
@@ -76,8 +52,6 @@ export default function BookSelectField({
             selectedBook={selectedBook}
             returnTo={returnTo}
             emptyText={emptyText}
-            storeType={storeType}
-            roundNo={roundNo}
           />
         )}
       />
