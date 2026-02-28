@@ -188,6 +188,12 @@ jobs:
           FAILED_STAGE=""
           AUTO_ROLLBACK="NOT_NEEDED"
 
+          print_deploy_status() {
+            local stage="$1"
+            local result="$2"
+            echo "배포상태 단계=$stage 결과=$result 이전활성색상=$PREV_ACTIVE_COLOR 대상색상=$TARGET_COLOR 이미지태그=$IMAGE_TAG 자동롤백=$AUTO_ROLLBACK"
+          }
+
           send_and_wait() {
             local instance_id="$1"
             local comment="$2"
@@ -279,11 +285,13 @@ jobs:
             if [ "$rb_ok" -eq 1 ]; then
               AUTO_ROLLBACK="SUCCESS"
               echo "AUTO_ROLLBACK=SUCCESS FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+              print_deploy_status "롤백" "성공"
               return 0
             fi
 
             AUTO_ROLLBACK="FAILED"
             echo "::error::AUTO_ROLLBACK=FAILED FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+            print_deploy_status "롤백" "실패"
             return 1
           }
 
@@ -294,6 +302,7 @@ jobs:
           ]')
           if ! send_and_wait "$APP_INSTANCE_ID" "사전 점검: active 색상 확인" "$PRECHECK_COMMANDS" 120; then
             echo "::error::사전 점검 실패"
+            print_deploy_status "사전점검" "실패"
             exit 1
           fi
           PREV_ACTIVE_COLOR=$(aws ssm get-command-invocation \
@@ -310,9 +319,10 @@ jobs:
             TARGET_COLOR="blue"
           fi
           echo "배포 대상 결정: PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
+          print_deploy_status "사전점검" "성공"
 
           # Stage 1: deploy inactive color on APP.
-          FAILED_STAGE="stage1_deploy_inactive"
+          FAILED_STAGE="1단계_비활성색상배포"
           STAGE1_COMMANDS=$(jq -n \
             --arg image "$IMAGE_URI" \
             --arg registry "$ECR_REGISTRY" \
@@ -323,11 +333,13 @@ jobs:
           if ! send_and_wait "$APP_INSTANCE_ID" "1단계: 프론트 비활성 색상 배포" "$STAGE1_COMMANDS" 600; then
             echo "::error::1단계 실패(트래픽 전환 전). 롤백 불필요."
             echo "AUTO_ROLLBACK=NOT_NEEDED FAILED_STAGE=$FAILED_STAGE"
+            print_deploy_status "1단계_비활성색상배포" "실패"
             exit 1
           fi
+          print_deploy_status "1단계_비활성색상배포" "성공"
 
           # Stage 2: switch Nginx upstream to new active color.
-          FAILED_STAGE="stage2_switch_nginx_upstream"
+          FAILED_STAGE="2단계_nginx전환"
           STAGE2_COMMANDS=$(jq -n \
             --arg color "$TARGET_COLOR" \
             --arg dns "$APP_PRIVATE_DNS" \
@@ -337,11 +349,13 @@ jobs:
             ]')
           if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
             rollback_on_failure || true
+            print_deploy_status "2단계_nginx전환" "실패"
             exit 1
           fi
+          print_deploy_status "2단계_nginx전환" "성공"
 
           # Stage 3: blue/green stabilization wait then stop old color on APP and update active state.
-          FAILED_STAGE="stage3_stop_old_color"
+          FAILED_STAGE="3단계_이전색상정리"
           STAGE3_COMMANDS=$(jq -n \
             --arg old "$PREV_ACTIVE_COLOR" \
             --arg new "$TARGET_COLOR" \
@@ -358,8 +372,10 @@ jobs:
             ]')
           if ! send_and_wait "$APP_INSTANCE_ID" "3단계: blue/green 대기 후 이전 색상 정리" "$STAGE3_COMMANDS" 420; then
             rollback_on_failure || true
+            print_deploy_status "3단계_이전색상정리" "실패"
             exit 1
           fi
+          print_deploy_status "3단계_이전색상정리" "성공"
 
           # Optional cleanup: keep only recent image tags.
           CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" '[
@@ -370,6 +386,7 @@ jobs:
           send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
 
           echo "배포 완료: AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+          print_deploy_status "최종" "성공"
 
       - name: Notify Discord
         if: always()
