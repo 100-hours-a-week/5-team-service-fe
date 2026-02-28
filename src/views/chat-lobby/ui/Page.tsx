@@ -9,12 +9,16 @@ export default function Page({ roomId }: { roomId: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const joinParams = useMemo(() => {
+  const hostQuerySuffix = useMemo(() => {
     const hostParam = searchParams.get("host");
-    const host = hostParam === "1" || hostParam === "true";
+    return hostParam === "1" || hostParam === "true" ? "?host=1" : "";
+  }, [searchParams]);
+
+  const joinParams = useMemo(() => {
+    const host = hostQuerySuffix === "?host=1";
 
     return { host };
-  }, [searchParams]);
+  }, [hostQuerySuffix]);
 
   const chatLobbySse = useChatLobby(roomId, joinParams);
   const { connectSse, leave } = chatLobbySse;
@@ -23,13 +27,13 @@ export default function Page({ roomId }: { roomId: number }) {
     connectSse(
       roomId,
       (rid) => {
-        router.replace(`/chats/${rid}`);
+        router.replace(`/chats/${rid}${hostQuerySuffix}`);
       },
       () => {
         router.replace("/chats");
       },
     );
-  }, [roomId, connectSse, router]);
+  }, [roomId, connectSse, hostQuerySuffix, router]);
 
   return (
     <ChatLobby
