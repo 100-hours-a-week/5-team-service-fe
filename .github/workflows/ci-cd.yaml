@@ -202,7 +202,7 @@ jobs:
               --timeout-seconds "$timeout" \
               --comment "$comment" \
               --output json) || {
-                echo "::error::Failed to send SSM command: $comment"
+                echo "::error::SSM 명령 전송 실패: $comment"
                 return 1
               }
 
@@ -210,7 +210,7 @@ jobs:
             target_count=$(echo "$resp" | jq -r '.Command.TargetCount // 0')
             echo "SSM Command: $cmd_id (targets: $target_count)"
             if [ "$target_count" -eq 0 ]; then
-              echo "::error::No SSM targets matched for: $comment"
+              echo "::error::SSM 대상 인스턴스가 없습니다: $comment"
               return 1
             fi
 
@@ -223,7 +223,7 @@ jobs:
               if [ -z "$status" ] || [ "$status" = "None" ]; then
                 status="Pending"
               fi
-              echo "[$i/60] $comment -> $status"
+              echo "[$i/60] $comment 상태: $status"
               case "$status" in
                 Success)
                   LAST_CMD_ID="$cmd_id"
@@ -237,18 +237,18 @@ jobs:
               esac
             done
 
-            echo "::error::SSM command timed out: $comment"
+            echo "::error::SSM 명령 타임아웃: $comment"
             return 1
           }
 
           rollback_on_failure() {
             if [ -z "$PREV_ACTIVE_COLOR" ] || [ -z "$TARGET_COLOR" ]; then
-              echo "AUTO_ROLLBACK=SKIPPED (insufficient context)"
+              echo "AUTO_ROLLBACK=SKIPPED (롤백 정보 부족)"
               AUTO_ROLLBACK="SKIPPED"
               return 0
             fi
 
-            echo "Rollback start: failed_stage=$FAILED_STAGE prev=$PREV_ACTIVE_COLOR target=$TARGET_COLOR"
+            echo "롤백 시작: failed_stage=$FAILED_STAGE prev=$PREV_ACTIVE_COLOR target=$TARGET_COLOR"
 
             local rb_ok=0
             local rb_switch_commands rb_app_commands
@@ -271,8 +271,8 @@ jobs:
                 "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
               ]')
 
-            if send_and_wait "$NGINX_INSTANCE_ID" "frontend rollback switch upstream" "$rb_switch_commands" 300 \
-              && send_and_wait "$APP_INSTANCE_ID" "frontend rollback restore app state" "$rb_app_commands" 300; then
+            if send_and_wait "$NGINX_INSTANCE_ID" "롤백: nginx upstream 복구" "$rb_switch_commands" 300 \
+              && send_and_wait "$APP_INSTANCE_ID" "롤백: 앱 active 상태 복구" "$rb_app_commands" 300; then
               rb_ok=1
             fi
 
@@ -292,8 +292,8 @@ jobs:
             "set -e",
             "if [ -f /var/run/frontend-active-color ]; then tr -d \"[:space:]\" < /var/run/frontend-active-color; else echo blue; fi"
           ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "frontend precheck active color" "$PRECHECK_COMMANDS" 120; then
-            echo "::error::Precheck failed"
+          if ! send_and_wait "$APP_INSTANCE_ID" "사전 점검: active 색상 확인" "$PRECHECK_COMMANDS" 120; then
+            echo "::error::사전 점검 실패"
             exit 1
           fi
           PREV_ACTIVE_COLOR=$(aws ssm get-command-invocation \
@@ -309,7 +309,7 @@ jobs:
           else
             TARGET_COLOR="blue"
           fi
-          echo "PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
+          echo "배포 대상 결정: PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
 
           # Stage 1: deploy inactive color on APP.
           FAILED_STAGE="stage1_deploy_inactive"
@@ -320,8 +320,8 @@ jobs:
               "set -e",
               ("/usr/local/bin/deploy-frontend-bluegreen.sh --image-uri " + $image + " --registry " + $registry + " --health-path / --canary-seconds 60 --memory 512m")
             ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "frontend stage1 deploy inactive color" "$STAGE1_COMMANDS" 600; then
-            echo "::error::Stage1 failed before traffic switch. Rollback not required."
+          if ! send_and_wait "$APP_INSTANCE_ID" "1단계: 프론트 비활성 색상 배포" "$STAGE1_COMMANDS" 600; then
+            echo "::error::1단계 실패(트래픽 전환 전). 롤백 불필요."
             echo "AUTO_ROLLBACK=NOT_NEEDED FAILED_STAGE=$FAILED_STAGE"
             exit 1
           fi
@@ -335,12 +335,12 @@ jobs:
               "set -e",
               ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
             ]')
-          if ! send_and_wait "$NGINX_INSTANCE_ID" "frontend stage2 switch nginx upstream" "$STAGE2_COMMANDS" 300; then
+          if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
             rollback_on_failure || true
             exit 1
           fi
 
-          # Stage 3: canary wait then stop old color on APP and update active state.
+          # Stage 3: blue/green stabilization wait then stop old color on APP and update active state.
           FAILED_STAGE="stage3_stop_old_color"
           STAGE3_COMMANDS=$(jq -n \
             --arg old "$PREV_ACTIVE_COLOR" \
@@ -356,7 +356,7 @@ jobs:
               "echo active=$NEW_COLOR old_stopped=$OLD_COLOR",
               "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
             ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "frontend stage3 stop old color" "$STAGE3_COMMANDS" 420; then
+          if ! send_and_wait "$APP_INSTANCE_ID" "3단계: blue/green 대기 후 이전 색상 정리" "$STAGE3_COMMANDS" 420; then
             rollback_on_failure || true
             exit 1
           fi
@@ -367,9 +367,9 @@ jobs:
             ("docker images " + $registry + "/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
             "docker image prune -f || true"
           ]')
-          send_and_wait "$APP_INSTANCE_ID" "frontend image cleanup" "$CLEANUP_COMMANDS" 180 || true
+          send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
 
-          echo "AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+          echo "배포 완료: AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
 
       - name: Notify Discord
         if: always()
