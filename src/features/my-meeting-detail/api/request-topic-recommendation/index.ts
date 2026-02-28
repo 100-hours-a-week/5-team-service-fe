@@ -10,5 +10,6 @@ export default async function requestTopicRecommendation({
   const requestUrl = `/meetings/${meetingId}/rounds/${roundNo}/topic-recommendations`;
   return apiFetch<RequestTopicRecommendationResponse>(requestUrl, {
     method: "POST",
+    timeoutMs: 70000,
   });
 }
