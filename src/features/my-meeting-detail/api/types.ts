@@ -78,7 +78,6 @@ export type RoundBookReportDetailResponse = {
   };
 };
 
-
 export type JoinedMeetingMember = {
   meetingMemberId: number;
   nickname: string;
