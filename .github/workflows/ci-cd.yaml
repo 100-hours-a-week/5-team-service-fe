@@ -198,7 +198,7 @@ jobs:
 
           CMD_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Environment,Values=dev" \
+            --instance-ids "i-03b97221a77062a1d" \
             --parameters "{\"commands\": $COMMANDS}" \
             --timeout-seconds 300 \
             --comment "deploy dev frontend ${{ github.sha }}" \
