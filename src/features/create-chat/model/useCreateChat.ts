@@ -38,7 +38,7 @@ export function useCreateChat() {
       const { roomId } = createChatResponse;
 
       resetCreateChatDraftValues();
-      router.push(`/chats/${roomId}/lobby?host=1`);
+      router.push(`/chat/${roomId}/lobby?host=1`);
     } catch (error) {
       captureException(error, { tags: { feature: "create-chat" } });
     }
