@@ -163,7 +163,7 @@ export default function MeetingTopicSelection({
           type="button"
           onClick={() => void handleSaveTopics()}
           disabled={!canSave}
-          className="h-11 rounded-xl bg-primary text-sm font-semibold text-white disabled:bg-gray-300"
+          className="h-11 rounded-xl bg-primary text-sm font-semibold text-white disabled:bg-gray-200 disabled:text-gray-500"
         >
           {isSaving ? "저장 중..." : "저장하기"}
         </button>
