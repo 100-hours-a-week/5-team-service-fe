@@ -39,7 +39,7 @@ export type MeetingRound = {
   review?: { status: string; id: number | null; writableUntil: string | null };
 };
 
-type RoundBookReportMember = {
+export type RoundBookReportMember = {
   meetingMemberId: number;
   nickname: string;
   bookReport: {
@@ -78,26 +78,51 @@ export type RoundBookReportDetailResponse = {
   };
 };
 
-export type GetMyMeetingDetailResponse = {
-  meetingId: number;
-  meetingImagePath: string;
-  title: string;
-  readingGenreName: string;
-  leaderInfo: {
-    profileImagePath: string;
-    nickname: string;
-  };
-  myRole: "LEADER" | "MEMBER";
-  roundCount: number;
-  capacity: number;
-  currentMemberCount: number;
-  rounds: MeetingRound[];
-  currentRoundNo: number;
-};
 
 export type JoinedMeetingMember = {
   meetingMemberId: number;
   nickname: string;
   profileImagePath?: string | null;
   joinedAt: string;
+};
+
+export type JoinedMeetingMembersResponse = {
+  meetingId: number;
+  memberCount: number;
+  members: JoinedMeetingMember[];
+};
+
+export type PendingParticipationItem = {
+  joinRequestId: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  nickname: string;
+  memberIntro: string;
+  profileImagePath?: string | null;
+};
+
+export type PendingParticipationsResponse = {
+  meetingId: number;
+  items: PendingParticipationItem[];
+  pageInfo: {
+    nextCursorId: number | null;
+    hasNext: boolean;
+    size: number;
+  };
+};
+
+export type MeetingParticipantItem = {
+  meetingMemberId: number;
+  nickname: string;
+  memberIntro: string;
+  profileImagePath?: string | null;
+};
+
+export type MeetingParticipantsResponse = {
+  members: MeetingParticipantItem[];
+  pageInfo: {
+    nextCursorId: number | null;
+    hasNext: boolean;
+    size: number;
+  };
 };
