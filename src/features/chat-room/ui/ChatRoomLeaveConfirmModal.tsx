@@ -13,7 +13,7 @@ export default function ChatRoomLeaveConfirmModal({
 }: ChatRoomLeaveConfirmModalProps) {
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center px-6 transition-opacity duration-200 ${
+      className={`absolute inset-0 z-50 flex items-center justify-center px-6 transition-opacity duration-200 ${
         isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
