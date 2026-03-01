@@ -97,7 +97,7 @@ jobs:
   build-and-push-arm64:
     needs: ci
     if: |
-      github.event_name == 'push' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
@@ -442,7 +442,18 @@ jobs:
               --arg dns "$APP_PRIVATE_DNS" \
               '[
                 "set -e",
-                ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+                ("TARGET_COLOR=" + $color),
+                ("APP_PRIVATE_DNS=" + $dns),
+                "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
+                "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
+                "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
+                "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
+                "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
+                "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
+                "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
+                "docker exec nginx nginx -t",
+                "docker exec nginx nginx -s reload",
+                "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
               ]')
 
             rb_app_commands=$(jq -n \
@@ -520,7 +531,18 @@ jobs:
             --arg dns "$APP_PRIVATE_DNS" \
             '[
               "set -e",
-              ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+              ("TARGET_COLOR=" + $color),
+              ("APP_PRIVATE_DNS=" + $dns),
+              "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
+              "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
+              "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
+              "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
+              "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
+              "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
+              "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
+              "docker exec nginx nginx -t",
+              "docker exec nginx nginx -s reload",
+              "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
             ]')
           if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
             rollback_on_failure || true
@@ -721,7 +743,18 @@ jobs:
               --arg dns "$APP_PRIVATE_DNS" \
               '[
                 "set -e",
-                ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+                ("TARGET_COLOR=" + $color),
+                ("APP_PRIVATE_DNS=" + $dns),
+                "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
+                "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
+                "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
+                "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
+                "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
+                "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
+                "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
+                "docker exec nginx nginx -t",
+                "docker exec nginx nginx -s reload",
+                "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
               ]')
 
             rb_app_commands=$(jq -n \
@@ -799,7 +832,18 @@ jobs:
             --arg dns "$APP_PRIVATE_DNS" \
             '[
               "set -e",
-              ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+              ("TARGET_COLOR=" + $color),
+              ("APP_PRIVATE_DNS=" + $dns),
+              "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
+              "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
+              "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
+              "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
+              "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
+              "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
+              "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
+              "docker exec nginx nginx -t",
+              "docker exec nginx nginx -s reload",
+              "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
             ]')
           if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
             rollback_on_failure || true
