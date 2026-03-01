@@ -10,6 +10,11 @@ on:
       - "*.md"
       - "docs/**"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
     branches:
       - develop
       - main
@@ -96,8 +101,11 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
-       github.event.pull_request.base.ref == 'staging' &&
-       github.event.pull_request.head.ref == 'develop')
+       (
+         github.event.pull_request.base.ref == 'develop' ||
+         (github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'develop') ||
+         (github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'develop')
+       ))
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
@@ -224,7 +232,11 @@ jobs:
 
   deploy-dev:
     needs: build-and-push-arm64
-    if: github.ref == 'refs/heads/develop'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'develop')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -285,10 +297,16 @@ jobs:
         run: |
           COMMIT_SHA="${{ github.sha }}"
           SHORT_SHA="${COMMIT_SHA:0:7}"
-          COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
-          COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           ACTIONS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_MSG="${{ github.event.pull_request.title }}"
+            COMMIT_AUTHOR="${{ github.event.pull_request.user.login }}"
+          else
+            COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
+            COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+          fi
 
           if [ "${{ job.status }}" == "success" ]; then
             COLOR=3066993; STATUS_EMOJI="✅"; STATUS_TEXT="배포 성공"
@@ -596,7 +614,11 @@ jobs:
 
   deploy-prod:
     needs: build-and-push-arm64
-    if: github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'develop'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -610,57 +632,229 @@ jobs:
 
       - name: Deploy to Prod via SSM
         run: |
-          REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
+          set -euo pipefail
 
-          COMMANDS=$(jq -n --arg registry "$REGISTRY" --arg tag "$TAG" '[
+          APP_INSTANCE_ID="i-0212b65a2dfba8335"
+          NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
+          APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
+          ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
+          IMAGE_URI="${ECR_REGISTRY}/doktori/frontend:${IMAGE_TAG}"
+          PREV_ACTIVE_COLOR=""
+          TARGET_COLOR=""
+          FAILED_STAGE=""
+          AUTO_ROLLBACK="NOT_NEEDED"
+
+          print_deploy_status() {
+            local stage="$1"
+            local result="$2"
+            echo "배포상태 단계=$stage 결과=$result 이전활성색상=$PREV_ACTIVE_COLOR 대상색상=$TARGET_COLOR 이미지태그=$IMAGE_TAG 자동롤백=$AUTO_ROLLBACK"
+          }
+
+          send_and_wait() {
+            local instance_id="$1"
+            local comment="$2"
+            local commands_json="$3"
+            local timeout="${4:-600}"
+
+            local resp cmd_id target_count status
+            resp=$(aws ssm send-command \
+              --document-name "AWS-RunShellScript" \
+              --instance-ids "$instance_id" \
+              --parameters "{\"commands\": $commands_json}" \
+              --timeout-seconds "$timeout" \
+              --comment "$comment" \
+              --output json) || {
+                echo "::error::SSM 명령 전송 실패: $comment"
+                return 1
+              }
+
+            cmd_id=$(echo "$resp" | jq -r '.Command.CommandId')
+            target_count=$(echo "$resp" | jq -r '.Command.TargetCount // 0')
+            echo "SSM Command: $cmd_id (targets: $target_count)"
+            if [ "$target_count" -eq 0 ]; then
+              echo "::error::SSM 대상 인스턴스가 없습니다: $comment"
+              return 1
+            fi
+
+            for i in $(seq 1 60); do
+              sleep 5
+              status=$(aws ssm list-command-invocations \
+                --command-id "$cmd_id" \
+                --query "CommandInvocations[0].Status" \
+                --output text 2>/dev/null || echo "Pending")
+              if [ -z "$status" ] || [ "$status" = "None" ]; then
+                status="Pending"
+              fi
+              echo "[$i/60] $comment 상태: $status"
+              case "$status" in
+                Success)
+                  LAST_CMD_ID="$cmd_id"
+                  return 0
+                  ;;
+                Failed|Cancelled|TimedOut|DeliveryTimedOut)
+                  aws ssm list-command-invocations --command-id "$cmd_id" --details \
+                    --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
+                  return 1
+                  ;;
+              esac
+            done
+
+            echo "::error::SSM 명령 타임아웃: $comment"
+            return 1
+          }
+
+          rollback_on_failure() {
+            if [ -z "$PREV_ACTIVE_COLOR" ] || [ -z "$TARGET_COLOR" ]; then
+              echo "AUTO_ROLLBACK=SKIPPED (롤백 정보 부족)"
+              AUTO_ROLLBACK="SKIPPED"
+              return 0
+            fi
+
+            echo "롤백 시작: failed_stage=$FAILED_STAGE prev=$PREV_ACTIVE_COLOR target=$TARGET_COLOR"
+
+            local rb_ok=0
+            local rb_switch_commands rb_app_commands
+
+            rb_switch_commands=$(jq -n \
+              --arg color "$PREV_ACTIVE_COLOR" \
+              --arg dns "$APP_PRIVATE_DNS" \
+              '[
+                "set -e",
+                ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+              ]')
+
+            rb_app_commands=$(jq -n \
+              --arg prev "$PREV_ACTIVE_COLOR" \
+              --arg target "$TARGET_COLOR" \
+              '[
+                "set -e",
+                ("echo " + $prev + " > /var/run/frontend-active-color"),
+                ("docker rm -f frontend-" + $target + " 2>/dev/null || true"),
+                "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
+              ]')
+
+            if send_and_wait "$NGINX_INSTANCE_ID" "롤백: nginx upstream 복구" "$rb_switch_commands" 300 \
+              && send_and_wait "$APP_INSTANCE_ID" "롤백: 앱 active 상태 복구" "$rb_app_commands" 300; then
+              rb_ok=1
+            fi
+
+            if [ "$rb_ok" -eq 1 ]; then
+              AUTO_ROLLBACK="SUCCESS"
+              echo "AUTO_ROLLBACK=SUCCESS FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+              print_deploy_status "롤백" "성공"
+              return 0
+            fi
+
+            AUTO_ROLLBACK="FAILED"
+            echo "::error::AUTO_ROLLBACK=FAILED FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+            print_deploy_status "롤백" "실패"
+            return 1
+          }
+
+          PRECHECK_COMMANDS=$(jq -n '[
             "set -e",
-            ("aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin " + $registry),
-            ("docker pull " + $registry + "/doktori/frontend:" + $tag),
-            "docker stop frontend 2>/dev/null || true",
-            "docker rm frontend 2>/dev/null || true",
-            ("docker run -d --name frontend --restart unless-stopped -p 3000:3000 " + $registry + "/doktori/frontend:" + $tag),
-            "docker image prune -f"
+            "if [ -f /var/run/frontend-active-color ]; then tr -d \"[:space:]\" < /var/run/frontend-active-color; else echo blue; fi"
           ]')
+          if ! send_and_wait "$APP_INSTANCE_ID" "사전 점검: active 색상 확인" "$PRECHECK_COMMANDS" 120; then
+            echo "::error::사전 점검 실패"
+            print_deploy_status "사전점검" "실패"
+            exit 1
+          fi
+          PREV_ACTIVE_COLOR=$(aws ssm get-command-invocation \
+            --command-id "$LAST_CMD_ID" \
+            --instance-id "$APP_INSTANCE_ID" \
+            --query "StandardOutputContent" \
+            --output text | tr -d '\r[:space:]')
+          if [ "$PREV_ACTIVE_COLOR" != "blue" ] && [ "$PREV_ACTIVE_COLOR" != "green" ]; then
+            PREV_ACTIVE_COLOR="blue"
+          fi
+          if [ "$PREV_ACTIVE_COLOR" = "blue" ]; then
+            TARGET_COLOR="green"
+          else
+            TARGET_COLOR="blue"
+          fi
+          echo "배포 대상 결정: PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
+          print_deploy_status "사전점검" "성공"
 
-          CMD_ID=$(aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Environment,Values=prod" "Key=tag:Service,Values=front" \
-            --parameters "{\"commands\": $COMMANDS}" \
-            --timeout-seconds 300 \
-            --comment "deploy prod frontend ${{ github.sha }}" \
-            --query "Command.CommandId" \
-            --output text)
+          FAILED_STAGE="1단계_비활성색상배포"
+          STAGE1_COMMANDS=$(jq -n \
+            --arg image "$IMAGE_URI" \
+            --arg registry "$ECR_REGISTRY" \
+            '[
+              "set -e",
+              ("/usr/local/bin/deploy-frontend-bluegreen.sh --image-uri " + $image + " --registry " + $registry + " --health-path / --canary-seconds 60 --memory 512m")
+            ]')
+          if ! send_and_wait "$APP_INSTANCE_ID" "1단계: 프론트 비활성 색상 배포" "$STAGE1_COMMANDS" 600; then
+            echo "::error::1단계 실패(트래픽 전환 전). 롤백 불필요."
+            echo "AUTO_ROLLBACK=NOT_NEEDED FAILED_STAGE=$FAILED_STAGE"
+            print_deploy_status "1단계_비활성색상배포" "실패"
+            exit 1
+          fi
+          print_deploy_status "1단계_비활성색상배포" "성공"
 
-          echo "SSM Command: $CMD_ID"
+          FAILED_STAGE="2단계_nginx전환"
+          STAGE2_COMMANDS=$(jq -n \
+            --arg color "$TARGET_COLOR" \
+            --arg dns "$APP_PRIVATE_DNS" \
+            '[
+              "set -e",
+              ("/usr/local/bin/switch-frontend-upstream.sh --target-color " + $color + " --app-private-dns " + $dns)
+            ]')
+          if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
+            rollback_on_failure || true
+            print_deploy_status "2단계_nginx전환" "실패"
+            exit 1
+          fi
+          print_deploy_status "2단계_nginx전환" "성공"
 
-          for i in $(seq 1 60); do
-            sleep 5
-            STATUS=$(aws ssm list-command-invocations \
-              --command-id "$CMD_ID" \
-              --query "CommandInvocations[0].Status" \
-              --output text 2>/dev/null || echo "Pending")
-            echo "[$i/60] $STATUS"
-            case "$STATUS" in
-              Success) exit 0 ;;
-              Failed|Cancelled|TimedOut|DeliveryTimedOut)
-                aws ssm list-command-invocations --command-id "$CMD_ID" --details \
-                  --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
-                exit 1 ;;
-            esac
-          done
-          echo "::error::SSM command timed out"
-          exit 1
+          FAILED_STAGE="3단계_이전색상정리"
+          STAGE3_COMMANDS=$(jq -n \
+            --arg old "$PREV_ACTIVE_COLOR" \
+            --arg new "$TARGET_COLOR" \
+            '[
+              "set -e",
+              ("OLD_COLOR=" + $old),
+              ("NEW_COLOR=" + $new),
+              "sleep 60",
+              "docker rm -f frontend-$OLD_COLOR 2>/dev/null || true",
+              "if [ \"$OLD_COLOR\" = \"blue\" ]; then docker rm -f frontend 2>/dev/null || true; fi",
+              "echo $NEW_COLOR > /var/run/frontend-active-color",
+              "echo active=$NEW_COLOR old_stopped=$OLD_COLOR",
+              "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
+            ]')
+          if ! send_and_wait "$APP_INSTANCE_ID" "3단계: blue/green 대기 후 이전 색상 정리" "$STAGE3_COMMANDS" 420; then
+            rollback_on_failure || true
+            print_deploy_status "3단계_이전색상정리" "실패"
+            exit 1
+          fi
+          print_deploy_status "3단계_이전색상정리" "성공"
+
+          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" '[
+            "set -e",
+            ("docker images " + $registry + "/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
+            "docker image prune -f || true"
+          ]')
+          send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
+
+          echo "배포 완료: AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
+          print_deploy_status "최종" "성공"
 
       - name: Notify Discord
         if: always()
         run: |
           COMMIT_SHA="${{ github.sha }}"
           SHORT_SHA="${COMMIT_SHA:0:7}"
-          COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
-          COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           ACTIONS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMIT_MSG="${{ github.event.pull_request.title }}"
+            COMMIT_AUTHOR="${{ github.event.pull_request.user.login }}"
+          else
+            COMMIT_MSG=$(echo '${{ github.event.head_commit.message }}' | head -1)
+            COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+          fi
 
           if [ "${{ job.status }}" == "success" ]; then
             COLOR=3066993; STATUS_EMOJI="✅"; STATUS_TEXT="배포 성공"
