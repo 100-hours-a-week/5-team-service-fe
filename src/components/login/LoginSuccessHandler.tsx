@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { apiFetch } from "@/lib/api/apiFetch";
-import { useAuthStore } from "@/stores/authStore";
 import { Spinner } from "@/components/ui/spinner";
+import { useAuthStore } from "@/shared/store/authStore";
 
 type TokenData = { accessToken: string };
 
