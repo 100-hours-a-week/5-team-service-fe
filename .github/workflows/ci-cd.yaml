@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - develop
-      - main
+      - staging
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -16,29 +15,22 @@ on:
       - reopened
       - closed
     branches:
-      - develop
-      - main
       - staging
+    types:
+      - closed
 
 concurrency:
   group: frontend-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  check-source-branch:
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate source branch
-        run: |
-          if [ "${{ github.head_ref }}" != "develop" ] && [[ "${{ github.head_ref }}" != hotfix/* ]]; then
-            echo "❌ Error: Only 'develop' or 'hotfix/*' branches can be merged into 'main'"
-            echo "Source branch: ${{ github.head_ref }}"
-            exit 1
-          fi
-          echo "✅ Source branch validation passed: ${{ github.head_ref }}"
-
   ci:
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -98,7 +90,6 @@ jobs:
     needs: ci
     if: |
       github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
        (
@@ -131,34 +122,13 @@ jobs:
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
           SHORT_SHA="${GITHUB_SHA:0:7}"
           ARCH="arm64"
-          if [ "${{ github.event_name }}" == "pull_request" ] && \
-             [ "${{ github.event.pull_request.merged }}" == "true" ] && \
-             [ "${{ github.event.pull_request.base.ref }}" == "staging" ] && \
-             [ "${{ github.event.pull_request.head.ref }}" == "develop" ]; then
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:staging"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:develop-${ARCH}"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          else
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:latest-${ARCH}"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          fi
+          TAG="sha-${SHORT_SHA}-${ARCH}"
+          {
+            echo "tags<<EOF"
+            echo "${REGISTRY}/doktori/frontend:${TAG}"
+            echo "${REGISTRY}/doktori/frontend:staging"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
           echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -166,11 +136,7 @@ jobs:
 
       - name: Prepare frontend build env file
         run: |
-          if [ "${{ github.event_name }}" == "pull_request" ] && \
-             [ "${{ github.event.pull_request.merged }}" == "true" ] && \
-             [ "${{ github.event.pull_request.base.ref }}" == "staging" ] && \
-             [ "${{ github.event.pull_request.head.ref }}" == "develop" ]; then
-            cat <<'EOF' > .env.build
+          cat <<'EOF' > .env.build
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_PROD }}
           NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL }}
           NEXT_PUBLIC_CHAT_WS_PATH=${{ secrets.NEXT_PUBLIC_CHAT_WS_PATH }}
@@ -185,39 +151,6 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD }}
           NEXT_PUBLIC_SENTRY_ENV=staging
           EOF
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            cat <<'EOF' > .env.build
-          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_PROD }}
-          NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_DEV }}
-          NEXT_PUBLIC_CHAT_WS_PATH=${{ secrets.NEXT_PUBLIC_CHAT_WS_PATH_DEV }}
-          NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
-          NEXT_PUBLIC_FIREBASE_APPID=${{ secrets.NEXT_PUBLIC_FIREBASE_APPID }}
-          NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
-          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD }}
-          NEXT_PUBLIC_SENTRY_ENV=production
-          EOF
-          else
-            cat <<'EOF' > .env.build
-          NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_DEV }}
-          NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_DEV }}
-          NEXT_PUBLIC_CHAT_WS_PATH=${{ secrets.NEXT_PUBLIC_CHAT_WS_PATH_DEV }}
-          NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_GA_ID=${{ secrets.NEXT_PUBLIC_GA_ID }}
-          NEXT_PUBLIC_FIREBASE_APPID=${{ secrets.NEXT_PUBLIC_FIREBASE_APPID }}
-          NEXT_PUBLIC_FIREBASE_VAPID_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_VAPID_KEY }}
-          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_DEV }}
-          NEXT_PUBLIC_SENTRY_ENV=development
-          EOF
-          fi
 
       - name: Build and push Frontend image
         uses: docker/build-push-action@v6
@@ -337,10 +270,11 @@ jobs:
   deploy-staging:
     needs: build-and-push-arm64
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.merged == true &&
-      github.event.pull_request.base.ref == 'staging' &&
-      github.event.pull_request.head.ref == 'develop'
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.merged == true &&
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -474,6 +408,7 @@ jobs:
             return 1
           }
 
+          # Pre-step: determine current active color on APP host.
           PRECHECK_COMMANDS=$(jq -n '[
             "set -e",
             "if [ -f /var/run/frontend-active-color ]; then tr -d \"[:space:]\" < /var/run/frontend-active-color; else echo blue; fi"
@@ -499,6 +434,7 @@ jobs:
           echo "배포 대상 결정: PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
           print_deploy_status "사전점검" "성공"
 
+          # Stage 1: deploy inactive color on APP.
           FAILED_STAGE="1단계_비활성색상배포"
           STAGE1_COMMANDS=$(jq -n \
             --arg image "$IMAGE_URI" \
@@ -515,6 +451,7 @@ jobs:
           fi
           print_deploy_status "1단계_비활성색상배포" "성공"
 
+          # Stage 2: switch Nginx upstream to new active color.
           FAILED_STAGE="2단계_nginx전환"
           STAGE2_COMMANDS=$(jq -n \
             --arg color "$TARGET_COLOR" \
@@ -530,6 +467,7 @@ jobs:
           fi
           print_deploy_status "2단계_nginx전환" "성공"
 
+          # Stage 3: blue/green stabilization wait then stop old color on APP and update active state.
           FAILED_STAGE="3단계_이전색상정리"
           STAGE3_COMMANDS=$(jq -n \
             --arg old "$PREV_ACTIVE_COLOR" \
@@ -552,6 +490,7 @@ jobs:
           fi
           print_deploy_status "3단계_이전색상정리" "성공"
 
+          # Optional cleanup: keep only recent image tags.
           CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" '[
             "set -e",
             ("docker images " + $registry + "/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
