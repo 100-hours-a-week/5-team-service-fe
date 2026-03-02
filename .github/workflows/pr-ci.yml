@@ -1,0 +1,86 @@
+name: Frontend PR CI
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - develop
+      - main
+      - staging
+
+concurrency:
+  group: frontend-pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check-source-branch:
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate source branch
+        run: |
+          if [ "${{ github.head_ref }}" != "develop" ] && [[ "${{ github.head_ref }}" != hotfix/* ]]; then
+            echo "❌ Error: Only 'develop' or 'hotfix/*' branches can be merged into 'main'"
+            echo "Source branch: ${{ github.head_ref }}"
+            exit 1
+          fi
+          echo "✅ Source branch validation passed: ${{ github.head_ref }}"
+
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: Run ESLint
+        run: pnpm run lint
+
+      - name: Check Prettier formatting
+        run: pnpm run format:check
+
+      - name: Notify Discord on failure
+        if: failure()
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          COMMIT_MSG="${{ github.event.pull_request.title }}"
+          COMMIT_AUTHOR="${{ github.event.pull_request.user.login }}"
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          ACTIONS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "{
+                 \"content\": \"❌ **Frontend PR CI 실패**\",
+                 \"embeds\": [{
+                   \"title\": \"🔴 PR 빌드 실패 알림\",
+                   \"color\": 15158528,
+                   \"fields\": [
+                     {\"name\": \"📦 저장소\", \"value\": \"\`${{ github.repository }}\`\", \"inline\": true},
+                     {\"name\": \"🌿 PR\", \"value\": \"\`${{ github.head_ref }} -> ${{ github.base_ref }}\`\", \"inline\": true},
+                     {\"name\": \"🔖 커밋\", \"value\": \"[\`$SHORT_SHA\`]($COMMIT_URL)\", \"inline\": true},
+                     {\"name\": \"💬 제목\", \"value\": \"$COMMIT_MSG\", \"inline\": false},
+                     {\"name\": \"👤 작성자\", \"value\": \"$COMMIT_AUTHOR\", \"inline\": true},
+                     {\"name\": \"📋 상세 로그\", \"value\": \"[Actions에서 확인]($ACTIONS_URL)\", \"inline\": true}
+                   ],
+                   \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+                 }]
+               }" \
+               ${{ secrets.DISCORD_WEBHOOK_URL }} || true
