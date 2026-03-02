@@ -3,17 +3,24 @@
 import { useFormContext } from "react-hook-form";
 import { useMemo } from "react";
 import ImageInput from "../input/ImageInput";
+import { getNameByPath } from "@/shared/lib/getNameByPath";
 
 type ImageFieldProps = {
   urlName: string;
   fileName: string;
   label: string;
   helperText?: string;
+  variant?: "circle" | "rect";
 };
 
 const makeId = (name: string) => `field_${name.replace(/[.\[\]]/g, "_")}`;
 
-export default function ImageField({ urlName, fileName, label }: ImageFieldProps) {
+export default function ImageField({
+  urlName,
+  fileName,
+  label,
+  variant = "circle",
+}: ImageFieldProps) {
   const {
     setValue,
     watch,
@@ -24,7 +31,8 @@ export default function ImageField({ urlName, fileName, label }: ImageFieldProps
   const imageFile = (watch(fileName) as File | null | undefined) ?? null;
 
   const id = makeId(fileName);
-  const errorMessage = (errors?.[fileName]?.message ?? "") as string;
+  const directError = getNameByPath<{ message?: unknown }>(errors, fileName);
+  const errorMessage = typeof directError?.message === "string" ? directError.message : "";
 
   const objectUrl = useMemo(() => {
     if (!imageFile) return null;
@@ -43,6 +51,7 @@ export default function ImageField({ urlName, fileName, label }: ImageFieldProps
       previewUrl={previewUrl}
       errorMessage={errorMessage}
       onPick={handlePick}
+      variant={variant}
     />
   );
 }
