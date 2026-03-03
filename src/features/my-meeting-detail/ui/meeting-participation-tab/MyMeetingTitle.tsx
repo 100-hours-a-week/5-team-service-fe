@@ -8,6 +8,7 @@ type MyMeetingTitleProps = {
   isLeader: boolean;
   meetingDate: string;
   isLeaving?: boolean;
+  onEditMeeting?: () => void;
   onLeaveMeeting?: () => void;
 };
 
@@ -19,6 +20,7 @@ export default function MyMeetingTitle({
   isLeader,
   meetingDate,
   isLeaving = false,
+  onEditMeeting,
   onLeaveMeeting,
 }: MyMeetingTitleProps) {
   const date = new Date(meetingDate);
@@ -51,14 +53,25 @@ export default function MyMeetingTitle({
             <span className="font-label !font-[700] text-primary">{leaderNickname}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onLeaveMeeting}
-          disabled={isLeaving}
-          className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-caption !font-[600] text-gray-700 disabled:opacity-50"
-        >
-          {isLeaving ? "처리 중..." : "모임 탈퇴"}
-        </button>
+        <div className="flex items-center gap-2">
+          {isLeader ? (
+            <button
+              type="button"
+              onClick={onEditMeeting}
+              className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-caption !font-[600] text-gray-700 disabled:opacity-50"
+            >
+              모임 수정
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onLeaveMeeting}
+            disabled={isLeaving}
+            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-caption !font-[600] text-gray-700 disabled:opacity-50"
+          >
+            {isLeaving ? "처리 중..." : "모임 탈퇴"}
+          </button>
+        </div>
       </div>
     </section>
   );
