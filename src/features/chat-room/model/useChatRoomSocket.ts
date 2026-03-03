@@ -29,6 +29,7 @@ export function useChatRoomSocket(roomId: number) {
   const [currentRound, setCurrentRound] = useState(1);
   const [roundStartedAt, setRoundStartedAt] = useState<string | null>(null);
   const [roomEnded, setRoomEnded] = useState(false);
+  const [summaryReadyVoteExpiresAt, setSummaryReadyVoteExpiresAt] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function useChatRoomSocket(roomId: number) {
 
   useEffect(() => {
     let cancelled = false;
+    let isClosingConnection = false;
 
     const bootstrapAndConnect = async () => {
       setIsBootstrapping(true);
@@ -99,10 +101,29 @@ export function useChatRoomSocket(roomId: number) {
               currentRound?: number;
               startedAt?: string;
               type?: string;
+              voteExpiresAt?: string;
             };
 
             if (payloadWithEvent.type === "ROOM_ENDED") {
               setRoomEnded(true);
+              return;
+            }
+
+            if (
+              payloadWithEvent.type === "SUMMARY_READY" &&
+              typeof payloadWithEvent.voteExpiresAt === "string"
+            ) {
+              setSummaryReadyVoteExpiresAt(payloadWithEvent.voteExpiresAt);
+
+              if (isClosingConnection) return;
+              isClosingConnection = true;
+
+              const keyToClose = subscriptionKeyRef.current;
+              if (keyToClose) {
+                stompManager.unsubscribe(keyToClose);
+                subscriptionKeyRef.current = null;
+              }
+              void stompManager.disconnect();
               return;
             }
 
@@ -192,6 +213,7 @@ export function useChatRoomSocket(roomId: number) {
     currentRound,
     roundStartedAt,
     roomEnded,
+    summaryReadyVoteExpiresAt,
     isBootstrapping,
     bootstrapError,
     chatError,

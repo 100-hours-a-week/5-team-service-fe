@@ -27,7 +27,7 @@ export default function ChatResultResultSection({
   }
 
   return (
-    <div className="relative mt-10 p-4">
+    <div className="relative mt-10 p-4 mb-10">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         {[0, 1, 2, 3, 4].map((index) => {
           const colorClass =

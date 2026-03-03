@@ -16,6 +16,9 @@ import ChatRoomLeaveConfirmModal from "./ChatRoomLeaveConfirmModal";
 import formatChatTime from "../lib/formatChatTime";
 import nextRound from "../api/next-round";
 import endChatRoom from "../api/end-chat-room";
+import useToastMessage from "@/shared/lib/useToastMessage";
+import Toast from "@/shared/ui/Toast";
+import { saveVoteExpiresAt } from "@/entities/chat/lib/chatVoteExpiresAtStore";
 
 export default function ChatRoom({ roomId }: { roomId: number }) {
   const router = useRouter();
@@ -26,6 +29,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
     messages,
     currentRound,
     roomEnded,
+    summaryReadyVoteExpiresAt,
     sendText,
     leaveRoom,
     isConnected,
@@ -42,6 +46,9 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const autoTriggeredRoundRef = useRef<number | null>(null);
   const hasSeenPositiveTimeRef = useRef(false);
+  const roomEndedNotifiedRef = useRef(false);
+  const summaryReadyHandledRef = useRef(false);
+  const { toastMessage, phase, showToast, handleExitAnimationEnd } = useToastMessage();
 
   const isHost = searchParams.get("host") === "1" || searchParams.get("host") === "true";
   const roomTitle = roomInfo?.topic ?? `채팅방 #${roomId}`;
@@ -117,9 +124,21 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   ]);
 
   useEffect(() => {
-    if (!roomEnded) return;
+    if (!roomEnded || roomEndedNotifiedRef.current) return;
+
+    roomEndedNotifiedRef.current = true;
+    showToast("채팅 토론이 종료되었습니다.");
+    window.setTimeout(() => {
+      showToast("토론 요약이 준비될 때까지 잠시만 기다려주세요.");
+    }, 800);
+  }, [roomEnded, showToast]);
+
+  useEffect(() => {
+    if (!summaryReadyVoteExpiresAt || summaryReadyHandledRef.current) return;
+    summaryReadyHandledRef.current = true;
+    saveVoteExpiresAt(roomId, summaryReadyVoteExpiresAt);
     router.replace(`/chat/${roomId}/result`);
-  }, [roomEnded, roomId, router]);
+  }, [roomId, router, summaryReadyVoteExpiresAt]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -227,6 +246,7 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         onClose={() => setIsLeaveConfirmOpen(false)}
         onConfirm={() => void handleLeave()}
       />
+      <Toast message={toastMessage} phase={phase} onExitAnimationEnd={handleExitAnimationEnd} />
     </div>
   );
 }

@@ -10,10 +10,23 @@ import { RESULT_MAX_RETRY_COUNT, RESULT_RETRY_INTERVAL_MS, VOTING_SECONDS } from
 import { formatSeconds } from "../lib/formatSeconds";
 import ChatResultVoteSection from "./ChatResultVoteSection";
 import ChatResultResultSection from "./ChatResultResultSection";
+import getChatSummary from "@/features/chat-result/api/get-chat-summary";
+import ChatSummary from "./ChatSummary";
+import { GetChatSummaryResponse } from "../api/get-chat-summary/types";
+import { consumeVoteExpiresAt } from "@/entities/chat/lib/chatVoteExpiresAtStore";
 
 export default function ChatResult({ roomId }: { roomId: number }) {
   const router = useRouter();
+  const [voteExpiresAtMs, setVoteExpiresAtMs] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(VOTING_SECONDS);
+
+  useEffect(() => {
+    const storedVoteExpiresAt = consumeVoteExpiresAt(roomId);
+    if (!storedVoteExpiresAt) return;
+    const parsed = new Date(storedVoteExpiresAt).getTime();
+    if (Number.isNaN(parsed)) return;
+    setVoteExpiresAtMs(parsed);
+  }, [roomId]);
   const [selectedChoice, setSelectedChoice] = useState<VoteChoice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
@@ -23,20 +36,66 @@ export default function ChatResult({ roomId }: { roomId: number }) {
   const [isResultFetchFinished, setIsResultFetchFinished] = useState(false);
   const [animatedAgreeCount, setAnimatedAgreeCount] = useState(0);
   const [animatedDisagreeCount, setAnimatedDisagreeCount] = useState(0);
+  const [summary, setSummary] = useState<GetChatSummaryResponse | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   useEffect(() => {
+    const calculateRemaining = () => {
+      if (voteExpiresAtMs === null) return null;
+      return Math.max(0, Math.floor((voteExpiresAtMs - Date.now()) / 1000));
+    };
+
+    if (voteExpiresAtMs !== null) {
+      setRemainingSeconds(calculateRemaining() ?? 0);
+    }
+
     const timer = window.setInterval(() => {
+      const nextRemaining = calculateRemaining();
       setRemainingSeconds((prev) => {
+        if (nextRemaining === null) {
+          if (prev <= 1) {
+            window.clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        }
+
         if (prev <= 1) {
           window.clearInterval(timer);
           return 0;
         }
-        return prev - 1;
+        return nextRemaining;
       });
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, []);
+  }, [voteExpiresAtMs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingSummary(true);
+
+    const fetchSummary = async () => {
+      try {
+        const nextSummary = await getChatSummary({ roomId });
+        if (cancelled) return;
+        setSummary(nextSummary);
+      } catch {
+        if (cancelled) return;
+        setSummary(null);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingSummary(false);
+        }
+      }
+    };
+
+    void fetchSummary();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
 
   useEffect(() => {
     if (remainingSeconds > 0 || result || isResultFetchFinished) return;
@@ -160,11 +219,13 @@ export default function ChatResult({ roomId }: { roomId: number }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-6 py-8">
-      <h1 className="text-subheading text-gray-900">{titleText}</h1>
+      <h1 className="text-subheading text-gray-900">토론 요약</h1>
+      <ChatSummary isLoadingSummary={isLoadingSummary} summary={summary} />
+
+      <h1 className="text-subheading text-gray-900 mt-10">{titleText}</h1>
       <p className="mt-2 text-body-2 text-gray-600">
         투표 종료까지 남은 시간: {formatSeconds(remainingSeconds)}
       </p>
-
       <ChatResultVoteSection
         selectedChoice={selectedChoice}
         canVote={canVote}
