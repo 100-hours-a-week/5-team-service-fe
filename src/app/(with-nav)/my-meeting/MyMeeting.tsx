@@ -124,7 +124,7 @@ export default function MyMeeting() {
       <div className="sticky top-0 z-20 bg-white">
         <MainHeader hasUnread />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-10">
+      <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-10">
         <div className="mt-6 flex items-center justify-between">
           <p className="text-subheading text-gray-900">Today</p>
           {hasMoreToday ? (
