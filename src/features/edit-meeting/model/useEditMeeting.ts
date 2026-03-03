@@ -37,7 +37,7 @@ export function useEditMeeting() {
     if (dirtyFields.recruitmentDeadline) request.recruitmentDeadline = values.recruitmentDeadline;
 
     if (Object.keys(request).length === 0) {
-      router.push(`/meetings/${meetingId}`);
+      router.push(`/my-meeting/${meetingId}`);
       return;
     }
 
@@ -48,7 +48,7 @@ export function useEditMeeting() {
       await queryClient.invalidateQueries({ queryKey: ["my-meeting"] });
     }
 
-    router.push(`/meetings/${meetingId}`);
+    router.push(`/my-meeting/${meetingId}`);
   };
 
   return { onSubmit };
