@@ -30,6 +30,7 @@ export function useChatRoomSocket(roomId: number) {
   const [roundStartedAt, setRoundStartedAt] = useState<string | null>(null);
   const [roomEnded, setRoomEnded] = useState(false);
   const [summaryReadyVoteExpiresAt, setSummaryReadyVoteExpiresAt] = useState<string | null>(null);
+  const [lastRoundChanged, setLastRoundChanged] = useState<number | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -131,7 +132,13 @@ export function useChatRoomSocket(roomId: number) {
               typeof payloadWithEvent.currentRound === "number" &&
               typeof payloadWithEvent.startedAt === "string"
             ) {
-              setCurrentRound(payloadWithEvent.currentRound);
+              const nextRound = payloadWithEvent.currentRound;
+              setCurrentRound((prev) => {
+                if (prev !== nextRound) {
+                  setLastRoundChanged(nextRound);
+                }
+                return nextRound;
+              });
               setRoundStartedAt(payloadWithEvent.startedAt);
               return;
             }
@@ -212,6 +219,7 @@ export function useChatRoomSocket(roomId: number) {
     messages,
     currentRound,
     roundStartedAt,
+    lastRoundChanged,
     roomEnded,
     summaryReadyVoteExpiresAt,
     isBootstrapping,
@@ -221,5 +229,6 @@ export function useChatRoomSocket(roomId: number) {
     sendText,
     leaveRoom,
     isConnected: connectionState === "connected",
+    clearLastRoundChanged: () => setLastRoundChanged(null),
   };
 }
