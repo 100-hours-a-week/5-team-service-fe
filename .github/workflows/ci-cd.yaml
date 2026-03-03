@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - develop
       - main
     paths-ignore:
       - "*.md"
@@ -12,7 +13,6 @@ on:
     types:
       - closed
     branches:
-      - develop
       - main
       - staging
 
@@ -23,12 +23,11 @@ concurrency:
 jobs:
   build-and-push-arm64:
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
        (
-         github.event.pull_request.base.ref == 'develop' ||
          (github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'develop') ||
          (github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'develop')
        ))
@@ -68,7 +67,10 @@ jobs:
               echo "${REGISTRY}/doktori/frontend:staging"
               echo "EOF"
             } >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ] || \
+               ( [ "${{ github.event_name }}" == "pull_request" ] && \
+                 [ "${{ github.event.pull_request.merged }}" == "true" ] && \
+                 [ "${{ github.event.pull_request.base.ref }}" == "develop" ] ); then
             TAG="sha-${SHORT_SHA}-${ARCH}"
             {
               echo "tags<<EOF"
@@ -159,6 +161,8 @@ jobs:
   deploy-dev:
     needs: build-and-push-arm64
     if: |
+      (github.event_name == 'push' &&
+       github.ref == 'refs/heads/develop') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
        github.event.pull_request.base.ref == 'develop')
