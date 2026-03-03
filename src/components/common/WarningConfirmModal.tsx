@@ -27,7 +27,7 @@ export default function WarningConfirmModal({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center px-6 transition-opacity duration-200 ${
+      className={`fixed inset-y-0 left-1/2 z-50 flex w-full max-w-[500px] -translate-x-1/2 items-center justify-center px-6 transition-opacity duration-200 ${
         isVisible ? "opacity-100" : "opacity-0"
       }`}
       aria-modal="true"
