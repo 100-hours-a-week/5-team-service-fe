@@ -173,6 +173,7 @@ export default function MyMeetingDetail({ meetingId }: { meetingId: number }) {
               isLeader={isLeader}
               meetingDate={activeRound.meetingDate}
               isLeaving={leaveMeetingMutation.isPending}
+              onEditMeeting={() => router.push(`/my-meeting/${meeting.meetingId}/edit`)}
               onLeaveMeeting={() => void handleClickLeaveMeeting()}
             />
           ) : null}
