@@ -8,7 +8,6 @@ export const MeetingList = () => {
   const {
     meetings,
     isError,
-    hasNextPage,
     genreMap,
     sentinelRef,
     onClickMeeting,
@@ -44,9 +43,6 @@ export const MeetingList = () => {
             : null}
         </div>
         <div ref={sentinelRef} />
-        {!hasNextPage && (
-          <div className="py-10 text-center text-sm text-gray-400">모든 모임을 불러왔어요.</div>
-        )}
       </div>
     </div>
   );
