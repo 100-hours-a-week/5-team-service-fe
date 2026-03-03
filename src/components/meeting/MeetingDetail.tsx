@@ -158,7 +158,7 @@ export default function MeetingDetail() {
       <div className="sticky top-0 z-20 bg-white">
         <PageHeader title="모임 상세" />
       </div>
-      <div className="flex-1 min-h-0 w-full overflow-y-auto pb-5">
+      <div className="no-scrollbar flex-1 min-h-0 w-full overflow-y-auto pb-5">
         <div className="overflow-hidden">
           <div className="relative aspect-[4/3] w-full bg-gray-100">
             {meeting.meetingImagePath ? (
