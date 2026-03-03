@@ -68,6 +68,30 @@ export const imageSchema = z
     }
   });
 
+export const optionaImageSchema = z
+  .instanceof(File)
+  .optional()
+  .superRefine(async (file, ctx) => {
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      ctx.addIssue({
+        code: "custom",
+        message: "이미지는 최대 5MB까지 업로드할 수 있습니다.",
+      });
+      return;
+    }
+
+    const magicMime = await detectImageMime(file);
+    if (!magicMime || !ALLOWED_MIME_TYPES.includes(magicMime)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "이미지는 JPG, PNG, WEBP 형식만 업로드 할 수 있습니다.",
+      });
+      return;
+    }
+  });
+
 export const bookSchema = z.object({
   isbn: z.string().regex(/^\d{13}$/, "isbn 형식과 맞지 않습니다."),
   title: z.string().min(1, { message: "책 제목이 정상적으로 입력되지 않았습니다." }),
