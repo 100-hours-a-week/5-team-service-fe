@@ -298,6 +298,14 @@ body {
   .animate-toast-slide-out {
     animation: toast-slide-out 220ms ease-in forwards;
   }
+
+  .animate-toast-chat-slide {
+    animation: toast-chat-slide 320ms ease-out forwards;
+  }
+
+  .animate-toast-chat-slide-out {
+    animation: toast-chat-slide-out 320ms ease-in forwards;
+  }
 }
 
 @keyframes shake-x {
@@ -337,6 +345,28 @@ body {
   }
   100% {
     transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+@keyframes toast-chat-slide {
+  0% {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(-50%);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-chat-slide-out {
+  0% {
+    transform: translateX(-50%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-220%);
     opacity: 0;
   }
 }

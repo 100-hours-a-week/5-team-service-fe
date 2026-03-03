@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ROUND_DURATION_SECONDS, TOTAL_ROUNDS } from "../model/config";
+import { ROUND_DURATION_SECONDS, ROUND_GUIDE, TOTAL_ROUNDS } from "../model/config";
 import { useChatRoomSocket } from "../model/useChatRoomSocket";
 import { useUserProfileQuery } from "@/entities/user/model/useUserProfileQuery";
 import ChatRoomTopSection from "./ChatRoomTopSection";
@@ -28,10 +28,12 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
     roomInfo,
     messages,
     currentRound,
+    lastRoundChanged,
     roomEnded,
     summaryReadyVoteExpiresAt,
     sendText,
     leaveRoom,
+    clearLastRoundChanged,
     isConnected,
     isBootstrapping,
     bootstrapError,
@@ -124,13 +126,22 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   ]);
 
   useEffect(() => {
+    if (!lastRoundChanged) return;
+    const roundGuide = ROUND_GUIDE[lastRoundChanged - 1];
+    const detailDescription = roundGuide?.description ?? "";
+    const message = detailDescription
+      ? `${lastRoundChanged}라운드가 시작되었습니다!\n${detailDescription}`
+      : `${lastRoundChanged}라운드가 시작되었습니다!`;
+
+    showToast(message, 4000);
+    clearLastRoundChanged();
+  }, [clearLastRoundChanged, lastRoundChanged, showToast]);
+
+  useEffect(() => {
     if (!roomEnded || roomEndedNotifiedRef.current) return;
 
     roomEndedNotifiedRef.current = true;
-    showToast("채팅 토론이 종료되었습니다.");
-    window.setTimeout(() => {
-      showToast("토론 요약이 준비될 때까지 잠시만 기다려주세요.");
-    }, 800);
+    showToast("토론이 종료되었습니다!\n잠시 후 투표 페이지로 이동합니다", 4000);
   }, [roomEnded, showToast]);
 
   useEffect(() => {
@@ -246,7 +257,12 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         onClose={() => setIsLeaveConfirmOpen(false)}
         onConfirm={() => void handleLeave()}
       />
-      <Toast message={toastMessage} phase={phase} onExitAnimationEnd={handleExitAnimationEnd} />
+      <Toast
+        message={toastMessage}
+        phase={phase}
+        variant="chat-room"
+        onExitAnimationEnd={handleExitAnimationEnd}
+      />
     </div>
   );
 }
