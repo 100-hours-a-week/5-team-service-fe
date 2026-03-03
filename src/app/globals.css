@@ -31,7 +31,16 @@ body {
   -ms-overflow-style: none;
 }
 
+.no-scorllbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
 .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scorllbar::-webkit-scrollbar {
   display: none;
 }
 
