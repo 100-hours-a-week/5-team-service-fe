@@ -1,6 +1,6 @@
 import z from "zod";
 
-const ALLOWED_CHARS = /^[a-zA-Z0-9가-힣\s]+$/;
+const ALLOWED_CHARS = /^(?!.*\p{Extended_Pictographic})[\s\S]+$/u;
 
 export const textSchema = (min: number, max: number, label: string) =>
   z
@@ -8,7 +8,7 @@ export const textSchema = (min: number, max: number, label: string) =>
     .min(min, { message: `${label}은(는) 최소 ${min}자 이상 입력해야 합니다.` })
     .max(max, { message: `${label}은(는) 최대 ${max}자까지 입력 가능합니다.` })
     .refine((v) => v.trim().length >= min, { message: "공백만 입력할 수 없습니다." })
-    .regex(ALLOWED_CHARS, { message: "한글을 제외한 문자/이모지는 사용할 수 없습니다." });
+    .regex(ALLOWED_CHARS, { message: "이모지는 사용할 수 없습니다." });
 
 export const isbnSchema = z
   .string({ message: "토론 도서는 필수 입력값입니다." })
