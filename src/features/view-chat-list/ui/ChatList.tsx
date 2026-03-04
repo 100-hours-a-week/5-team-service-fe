@@ -147,6 +147,12 @@ export default function ChatList() {
         ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={`init-${i}`} />)
         : null}
 
+      {!showInitSkeleton && !isError && chats.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center py-10 text-sm text-gray-400">
+          현재 진행 중인 토론방이 없습니다.
+        </div>
+      ) : null}
+
       {chats.map((chat, index) => (
         <ChatCard
           key={chat.roomId}

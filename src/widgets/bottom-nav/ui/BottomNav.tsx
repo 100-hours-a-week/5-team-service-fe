@@ -10,7 +10,7 @@ import { useState } from "react";
 export default function BottomNav() {
   const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
-  const isCreateButtonShown = pathname === "/";
+  const isCreateButtonShown = pathname === "/" || pathname === "/chats";
 
   return (
     <nav className="relative h-16">

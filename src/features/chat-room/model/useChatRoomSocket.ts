@@ -29,6 +29,8 @@ export function useChatRoomSocket(roomId: number) {
   const [currentRound, setCurrentRound] = useState(1);
   const [roundStartedAt, setRoundStartedAt] = useState<string | null>(null);
   const [roomEnded, setRoomEnded] = useState(false);
+  const [summaryReadyVoteExpiresAt, setSummaryReadyVoteExpiresAt] = useState<string | null>(null);
+  const [lastRoundChanged, setLastRoundChanged] = useState<number | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function useChatRoomSocket(roomId: number) {
 
   useEffect(() => {
     let cancelled = false;
+    let isClosingConnection = false;
 
     const bootstrapAndConnect = async () => {
       setIsBootstrapping(true);
@@ -99,6 +102,7 @@ export function useChatRoomSocket(roomId: number) {
               currentRound?: number;
               startedAt?: string;
               type?: string;
+              voteExpiresAt?: string;
             };
 
             if (payloadWithEvent.type === "ROOM_ENDED") {
@@ -107,10 +111,34 @@ export function useChatRoomSocket(roomId: number) {
             }
 
             if (
+              payloadWithEvent.type === "SUMMARY_READY" &&
+              typeof payloadWithEvent.voteExpiresAt === "string"
+            ) {
+              setSummaryReadyVoteExpiresAt(payloadWithEvent.voteExpiresAt);
+
+              if (isClosingConnection) return;
+              isClosingConnection = true;
+
+              const keyToClose = subscriptionKeyRef.current;
+              if (keyToClose) {
+                stompManager.unsubscribe(keyToClose);
+                subscriptionKeyRef.current = null;
+              }
+              void stompManager.disconnect();
+              return;
+            }
+
+            if (
               typeof payloadWithEvent.currentRound === "number" &&
               typeof payloadWithEvent.startedAt === "string"
             ) {
-              setCurrentRound(payloadWithEvent.currentRound);
+              const nextRound = payloadWithEvent.currentRound;
+              setCurrentRound((prev) => {
+                if (prev !== nextRound) {
+                  setLastRoundChanged(nextRound);
+                }
+                return nextRound;
+              });
               setRoundStartedAt(payloadWithEvent.startedAt);
               return;
             }
@@ -191,7 +219,9 @@ export function useChatRoomSocket(roomId: number) {
     messages,
     currentRound,
     roundStartedAt,
+    lastRoundChanged,
     roomEnded,
+    summaryReadyVoteExpiresAt,
     isBootstrapping,
     bootstrapError,
     chatError,
@@ -199,5 +229,6 @@ export function useChatRoomSocket(roomId: number) {
     sendText,
     leaveRoom,
     isConnected: connectionState === "connected",
+    clearLastRoundChanged: () => setLastRoundChanged(null),
   };
 }

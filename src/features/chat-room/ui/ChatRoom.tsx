@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ROUND_DURATION_SECONDS, TOTAL_ROUNDS } from "../model/config";
+import { ROUND_DURATION_SECONDS, ROUND_GUIDE, TOTAL_ROUNDS } from "../model/config";
 import { useChatRoomSocket } from "../model/useChatRoomSocket";
 import { useUserProfileQuery } from "@/entities/user/model/useUserProfileQuery";
 import ChatRoomTopSection from "./ChatRoomTopSection";
@@ -16,6 +16,9 @@ import ChatRoomLeaveConfirmModal from "./ChatRoomLeaveConfirmModal";
 import formatChatTime from "../lib/formatChatTime";
 import nextRound from "../api/next-round";
 import endChatRoom from "../api/end-chat-room";
+import useToastMessage from "@/shared/lib/useToastMessage";
+import Toast from "@/shared/ui/Toast";
+import { saveVoteExpiresAt } from "@/entities/chat/lib/chatVoteExpiresAtStore";
 
 export default function ChatRoom({ roomId }: { roomId: number }) {
   const router = useRouter();
@@ -25,9 +28,12 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
     roomInfo,
     messages,
     currentRound,
+    lastRoundChanged,
     roomEnded,
+    summaryReadyVoteExpiresAt,
     sendText,
     leaveRoom,
+    clearLastRoundChanged,
     isConnected,
     isBootstrapping,
     bootstrapError,
@@ -42,6 +48,9 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const autoTriggeredRoundRef = useRef<number | null>(null);
   const hasSeenPositiveTimeRef = useRef(false);
+  const roomEndedNotifiedRef = useRef(false);
+  const summaryReadyHandledRef = useRef(false);
+  const { toastMessage, phase, showToast, handleExitAnimationEnd } = useToastMessage();
 
   const isHost = searchParams.get("host") === "1" || searchParams.get("host") === "true";
   const roomTitle = roomInfo?.topic ?? `채팅방 #${roomId}`;
@@ -117,9 +126,30 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
   ]);
 
   useEffect(() => {
-    if (!roomEnded) return;
+    if (!lastRoundChanged) return;
+    const roundGuide = ROUND_GUIDE[lastRoundChanged - 1];
+    const detailDescription = roundGuide?.description ?? "";
+    const message = detailDescription
+      ? `${lastRoundChanged}라운드가 시작되었습니다!\n${detailDescription}`
+      : `${lastRoundChanged}라운드가 시작되었습니다!`;
+
+    showToast(message, 4000);
+    clearLastRoundChanged();
+  }, [clearLastRoundChanged, lastRoundChanged, showToast]);
+
+  useEffect(() => {
+    if (!roomEnded || roomEndedNotifiedRef.current) return;
+
+    roomEndedNotifiedRef.current = true;
+    showToast("토론이 종료되었습니다!\n잠시 후 투표 페이지로 이동합니다", 4000);
+  }, [roomEnded, showToast]);
+
+  useEffect(() => {
+    if (!summaryReadyVoteExpiresAt || summaryReadyHandledRef.current) return;
+    summaryReadyHandledRef.current = true;
+    saveVoteExpiresAt(roomId, summaryReadyVoteExpiresAt);
     router.replace(`/chat/${roomId}/result`);
-  }, [roomEnded, roomId, router]);
+  }, [roomId, router, summaryReadyVoteExpiresAt]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -226,6 +256,12 @@ export default function ChatRoom({ roomId }: { roomId: number }) {
         isLeaving={isLeaving}
         onClose={() => setIsLeaveConfirmOpen(false)}
         onConfirm={() => void handleLeave()}
+      />
+      <Toast
+        message={toastMessage}
+        phase={phase}
+        variant="chat-room"
+        onExitAnimationEnd={handleExitAnimationEnd}
       />
     </div>
   );

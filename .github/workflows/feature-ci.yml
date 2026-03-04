@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "feature/**"
-      - "develop"
 
 concurrency:
   group: frontend-feature-ci-${{ github.ref }}

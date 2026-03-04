@@ -19,6 +19,7 @@ export type MyMeetingListResponse = {
 
 export const STATUS_TABS = [
   { label: "진행중", value: "ACTIVE" },
+  { label: "승인 대기", value: "PENDING_APPROVAL" },
   { label: "종료", value: "INACTIVE" },
 ] as const;
 
@@ -52,6 +53,96 @@ export type MeetingRound = {
     profileImagePath: string;
   };
   review?: { status: string; id: number | null; writableUntil: string | null };
+};
+
+export type BookReportStatus =
+  | "NOT_YET_WRITABLE"
+  | "NOT_SUBMITTED"
+  | "DEADLINE_PASSED"
+  | "PENDING_REVIEW"
+  | "SUBMITTED"
+  | "APPROVED"
+  | "REJECTED";
+
+export type RoundBookReportMember = {
+  meetingMemberId: number;
+  nickname: string;
+  bookReport: {
+    id?: number | null;
+    status: BookReportStatus;
+    submittedAt: string | null;
+  } | null;
+  submissionRate: number;
+};
+
+export type RoundBookReportListResponse = {
+  roundNo: number;
+  submittedCount: number;
+  totalCount: number;
+  members: RoundBookReportMember[];
+};
+
+export type RoundBookReportDetailResponse = {
+  book: {
+    title: string;
+    authors: string;
+    publisher: string;
+    thumbnailUrl: string;
+    publishedAt: string;
+  };
+  writer: {
+    meetingMemberId: number;
+    nickname: string;
+  };
+  bookReport: {
+    id: number;
+    status: BookReportStatus;
+    content: string;
+    rejectionReason: string | null;
+  };
+};
+
+export type JoinedMeetingMember = {
+  meetingMemberId: number;
+  nickname: string;
+  tierImagePath?: string;
+  profileImagePath?: string;
+  joinedAt: string;
+  categories?: {
+    readingVolume?: string;
+    age?: string;
+    gender?: string;
+    purpose?: string;
+  };
+};
+
+export type JoinedMeetingMembersResponse = {
+  meetingId: number;
+  memberCount: number;
+  members: JoinedMeetingMember[];
+};
+
+export type PendingParticipationItem = {
+  joinRequestId: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt: string;
+  applicant: {
+    meetingMemberId: number;
+    nickname: string;
+    tierImagePath?: string;
+    memberIntro?: string;
+    profileImagePath?: string;
+  };
+};
+
+export type PendingParticipationsResponse = {
+  meetingId: number;
+  items: PendingParticipationItem[];
+  pageInfo: {
+    nextCursorId: number | null;
+    hasNext: boolean;
+    size: number;
+  };
 };
 
 export type MyMeetingDetailResponse = {
