@@ -11,6 +11,7 @@ type MyMeetingCardProps = {
   leaderNickname: string;
   currentRound: number;
   meetingDate: string;
+  detailHref?: string;
 };
 
 export default function MyMeetingCard({
@@ -21,10 +22,13 @@ export default function MyMeetingCard({
   leaderNickname,
   currentRound,
   meetingDate,
+  detailHref,
 }: MyMeetingCardProps) {
+  const href = detailHref ?? `/my-meeting/${meetingId}`;
+
   return (
     <Link
-      href={`/my-meeting/${meetingId}`}
+      href={href}
       className="block overflow-hidden rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
     >
       <div className="relative h-32 w-full overflow-hidden rounded-2xl bg-gray-100">

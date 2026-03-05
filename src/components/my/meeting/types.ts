@@ -19,7 +19,7 @@ export type MyMeetingListResponse = {
 
 export const STATUS_TABS = [
   { label: "진행중", value: "ACTIVE" },
-  { label: "승인 대기", value: "PENDING_APPROVAL" },
+  { label: "승인 대기", value: "PENDING" },
   { label: "종료", value: "INACTIVE" },
 ] as const;
 
