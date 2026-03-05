@@ -23,7 +23,6 @@ export default function RecommendMeetingTopicSection({
     isSaving,
     remainingAiCount,
     recommendMessage,
-    showInitialTopicNotice,
     canSave,
     setIsGuideModalOpen,
     handleChangeTopic,
