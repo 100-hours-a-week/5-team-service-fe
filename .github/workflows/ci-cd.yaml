@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - develop
-      - feature/s3-CDN
+      - main
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -13,7 +13,7 @@ on:
     types:
       - closed
     branches:
-      - feature/s3-CDN
+      - main
       - staging
 
 concurrency:
@@ -23,21 +23,18 @@ concurrency:
 jobs:
   build-and-push-arm64:
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/s3-CDN')) ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
-       (
-         (github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'develop') ||
-         github.event.pull_request.base.ref == 'feature/s3-CDN'
-       ))
+       github.event.pull_request.base.ref == 'staging' &&
+       github.event.pull_request.head.ref == 'develop')
     runs-on: ubuntu-24.04-arm
     permissions:
       id-token: write
       contents: read
     outputs:
       image-tag: ${{ steps.meta.outputs.image-tag }}
-      image-repository: ${{ steps.meta.outputs.image-repository }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -83,16 +80,16 @@ jobs:
               echo "${REGISTRY}/${REPOSITORY}:develop-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/feature/s3-CDN" ] || \
+          elif [ "${{ github.ref }}" == "refs/heads/main" ] || \
                ( [ "${{ github.event_name }}" == "pull_request" ] && \
                  [ "${{ github.event.pull_request.merged }}" == "true" ] && \
-                 [ "${{ github.event.pull_request.base.ref }}" == "feature/s3-CDN" ] ); then
+                 [ "${{ github.event.pull_request.base.ref }}" == "main" ] ); then
             TAG="sha-${SHORT_SHA}-${ARCH}"
             REPOSITORY="$PROD_REPOSITORY"
             {
               echo "tags<<EOF"
               echo "${REGISTRY}/${REPOSITORY}:${TAG}"
-              echo "${REGISTRY}/${REPOSITORY}:feature-s3-cdn-${ARCH}"
+              echo "${REGISTRY}/${REPOSITORY}:latest-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           else
@@ -106,7 +103,6 @@ jobs:
             } >> $GITHUB_OUTPUT
           fi
           echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "image-repository=${REPOSITORY}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -132,10 +128,10 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD }}
           NEXT_PUBLIC_SENTRY_ENV=staging
           EOF
-          elif [ "${{ github.ref }}" == "refs/heads/feature/s3-CDN" ] || \
+          elif [ "${{ github.ref }}" == "refs/heads/main" ] || \
                ( [ "${{ github.event_name }}" == "pull_request" ] && \
                  [ "${{ github.event.pull_request.merged }}" == "true" ] && \
-                 [ "${{ github.event.pull_request.base.ref }}" == "feature/s3-CDN" ] ); then
+                 [ "${{ github.event.pull_request.base.ref }}" == "main" ] ); then
             cat <<'EOF' > .env.build
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_PROD }}
           NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_PROD }}
@@ -311,7 +307,7 @@ jobs:
           NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
           APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
           ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          ECR_REPOSITORY="${{ needs.build-and-push-arm64.outputs.image-repository }}"
+          ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
           IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
           IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
           PREV_ACTIVE_COLOR=""
@@ -589,10 +585,10 @@ jobs:
   deploy-prod:
     needs: build-and-push-arm64
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/feature/s3-CDN') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
-       github.event.pull_request.base.ref == 'feature/s3-CDN')
+       github.event.pull_request.base.ref == 'main')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -615,7 +611,7 @@ jobs:
           NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
           APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
           ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          ECR_REPOSITORY="${{ needs.build-and-push-arm64.outputs.image-repository }}"
+          ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
           IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
           IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
           PREV_ACTIVE_COLOR=""
@@ -843,7 +839,7 @@ jobs:
       - name: Sync .next/static to S3
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-          ECR_REPOSITORY: ${{ needs.build-and-push-arm64.outputs.image-repository }}
+          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_PROD }}
           IMAGE_TAG: ${{ needs.build-and-push-arm64.outputs.image-tag }}
           STATIC_BUCKET_NAME: ${{ secrets.STATIC_BUCKET_NAME_PROD }}
         run: |
