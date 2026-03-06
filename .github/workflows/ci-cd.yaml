@@ -5,7 +5,7 @@ on:
   push:
     branches:
       - develop
-      - main
+      - feature/s3-CDN
     paths-ignore:
       - "*.md"
       - "docs/**"
@@ -13,7 +13,7 @@ on:
     types:
       - closed
     branches:
-      - main
+      - feature/s3-CDN
       - staging
 
 concurrency:
@@ -23,13 +23,13 @@ concurrency:
 jobs:
   build-and-push-arm64:
     if: |
-      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')) ||
+      (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/s3-CDN')) ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
        (
          (github.event.pull_request.base.ref == 'staging' && github.event.pull_request.head.ref == 'develop') ||
-         (github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'develop')
+         github.event.pull_request.base.ref == 'feature/s3-CDN'
        ))
     runs-on: ubuntu-24.04-arm
     permissions:
@@ -37,6 +37,7 @@ jobs:
       contents: read
     outputs:
       image-tag: ${{ steps.meta.outputs.image-tag }}
+      image-repository: ${{ steps.meta.outputs.image-repository }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,6 +55,8 @@ jobs:
         id: meta
         run: |
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          PROD_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
+          NONPROD_REPOSITORY="doktori/frontend"
           SHORT_SHA="${GITHUB_SHA:0:7}"
           ARCH="arm64"
           if [ "${{ github.event_name }}" == "pull_request" ] && \
@@ -61,10 +64,11 @@ jobs:
              [ "${{ github.event.pull_request.base.ref }}" == "staging" ] && \
              [ "${{ github.event.pull_request.head.ref }}" == "develop" ]; then
             TAG="sha-${SHORT_SHA}-${ARCH}"
+            REPOSITORY="$NONPROD_REPOSITORY"
             {
               echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:staging"
+              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
+              echo "${REGISTRY}/${REPOSITORY}:staging"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           elif [ "${{ github.ref }}" == "refs/heads/develop" ] || \
@@ -72,22 +76,37 @@ jobs:
                  [ "${{ github.event.pull_request.merged }}" == "true" ] && \
                  [ "${{ github.event.pull_request.base.ref }}" == "develop" ] ); then
             TAG="sha-${SHORT_SHA}-${ARCH}"
+            REPOSITORY="$NONPROD_REPOSITORY"
             {
               echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:develop-${ARCH}"
+              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
+              echo "${REGISTRY}/${REPOSITORY}:develop-${ARCH}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/feature/s3-CDN" ] || \
+               ( [ "${{ github.event_name }}" == "pull_request" ] && \
+                 [ "${{ github.event.pull_request.merged }}" == "true" ] && \
+                 [ "${{ github.event.pull_request.base.ref }}" == "feature/s3-CDN" ] ); then
+            TAG="sha-${SHORT_SHA}-${ARCH}"
+            REPOSITORY="$PROD_REPOSITORY"
+            {
+              echo "tags<<EOF"
+              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
+              echo "${REGISTRY}/${REPOSITORY}:feature-s3-cdn-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           else
             TAG="sha-${SHORT_SHA}-${ARCH}"
+            REPOSITORY="$NONPROD_REPOSITORY"
             {
               echo "tags<<EOF"
-              echo "${REGISTRY}/doktori/frontend:${TAG}"
-              echo "${REGISTRY}/doktori/frontend:latest-${ARCH}"
+              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
+              echo "${REGISTRY}/${REPOSITORY}:latest-${ARCH}"
               echo "EOF"
             } >> $GITHUB_OUTPUT
           fi
           echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "image-repository=${REPOSITORY}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -113,7 +132,10 @@ jobs:
           NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN_PROD }}
           NEXT_PUBLIC_SENTRY_ENV=staging
           EOF
-          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          elif [ "${{ github.ref }}" == "refs/heads/feature/s3-CDN" ] || \
+               ( [ "${{ github.event_name }}" == "pull_request" ] && \
+                 [ "${{ github.event.pull_request.merged }}" == "true" ] && \
+                 [ "${{ github.event.pull_request.base.ref }}" == "feature/s3-CDN" ] ); then
             cat <<'EOF' > .env.build
           NEXT_PUBLIC_API_BASE_URL=${{ secrets.NEXT_PUBLIC_API_BASE_URL_PROD }}
           NEXT_PUBLIC_CHAT_BASE_URL=${{ secrets.NEXT_PUBLIC_CHAT_BASE_URL_PROD }}
@@ -289,8 +311,9 @@ jobs:
           NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
           APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
           ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          ECR_REPOSITORY="${{ needs.build-and-push-arm64.outputs.image-repository }}"
           IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
-          IMAGE_URI="${ECR_REGISTRY}/doktori/frontend:${IMAGE_TAG}"
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
           PREV_ACTIVE_COLOR=""
           TARGET_COLOR=""
           FAILED_STAGE=""
@@ -503,9 +526,9 @@ jobs:
           fi
           print_deploy_status "3단계_이전색상정리" "성공"
 
-          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" '[
+          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" --arg repository "$ECR_REPOSITORY" '[
             "set -e",
-            ("docker images " + $registry + "/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
+            ("docker images " + $registry + "/" + $repository + " --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
             "docker image prune -f || true"
           ]')
           send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
@@ -566,11 +589,10 @@ jobs:
   deploy-prod:
     needs: build-and-push-arm64
     if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/feature/s3-CDN') ||
       (github.event_name == 'pull_request' &&
        github.event.pull_request.merged == true &&
-       github.event.pull_request.base.ref == 'main' &&
-       github.event.pull_request.head.ref == 'develop')
+       github.event.pull_request.base.ref == 'feature/s3-CDN')
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -582,6 +604,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-2
 
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
       - name: Deploy to Prod via SSM
         run: |
           set -euo pipefail
@@ -590,8 +615,9 @@ jobs:
           NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
           APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
           ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
+          ECR_REPOSITORY="${{ needs.build-and-push-arm64.outputs.image-repository }}"
           IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
-          IMAGE_URI="${ECR_REGISTRY}/doktori/frontend:${IMAGE_TAG}"
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
           PREV_ACTIVE_COLOR=""
           TARGET_COLOR=""
           FAILED_STAGE=""
@@ -804,15 +830,44 @@ jobs:
           fi
           print_deploy_status "3단계_이전색상정리" "성공"
 
-          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" '[
+          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" --arg repository "$ECR_REPOSITORY" '[
             "set -e",
-            ("docker images " + $registry + "/doktori/frontend --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
+            ("docker images " + $registry + "/" + $repository + " --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
             "docker image prune -f || true"
           ]')
           send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
 
           echo "배포 완료: AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
           print_deploy_status "최종" "성공"
+
+      - name: Sync .next/static to S3
+        env:
+          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY: ${{ needs.build-and-push-arm64.outputs.image-repository }}
+          IMAGE_TAG: ${{ needs.build-and-push-arm64.outputs.image-tag }}
+          STATIC_BUCKET_NAME: ${{ secrets.STATIC_BUCKET_NAME_PROD }}
+        run: |
+          set -euo pipefail
+
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          CONTAINER_ID=$(docker create "$IMAGE_URI")
+          trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
+
+          rm -rf /tmp/frontend-static
+          mkdir -p /tmp/frontend-static
+          docker cp "$CONTAINER_ID:/app/.next/static" /tmp/frontend-static/static
+
+          aws s3 sync /tmp/frontend-static/static/ "s3://${STATIC_BUCKET_NAME}/_next/static/" --delete
+
+      - name: Create CloudFront invalidation
+        env:
+          CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID_PROD }}
+        run: |
+          set -euo pipefail
+
+          aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/_next/static/*"
 
       - name: Notify Discord
         if: always()
