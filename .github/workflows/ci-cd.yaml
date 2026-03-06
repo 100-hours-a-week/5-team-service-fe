@@ -846,6 +846,7 @@ jobs:
           set -euo pipefail
 
           IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker pull "$IMAGE_URI"
           CONTAINER_ID=$(docker create "$IMAGE_URI")
           trap 'docker rm -f "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
 
