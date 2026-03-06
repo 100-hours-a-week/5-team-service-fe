@@ -194,6 +194,11 @@ export default function MyMeeting() {
                   leaderNickname={item.leaderNickname}
                   currentRound={item.currentRound}
                   meetingDate={item.meetingDate}
+                  detailHref={
+                    status === "PENDING"
+                      ? `/meeting/detail/${item.meetingId}`
+                      : `/my-meeting/${item.meetingId}`
+                  }
                 />
               ))}
             </div>

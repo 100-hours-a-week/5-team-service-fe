@@ -1,9 +1,9 @@
-export type RequestTopicRecommendationRequest = {
+export type RecommendMeetingTopicRequest = {
   meetingId: number;
   roundNo: number;
 };
 
-export type RequestTopicRecommendationResponse = {
+export type RecommendMeetingTopicResponse = {
   meetingId: number;
   roundNo: number;
   topic: string;
