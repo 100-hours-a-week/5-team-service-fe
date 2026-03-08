@@ -32,13 +32,15 @@ function resolveDeliveryPath(headers: HeaderMap | undefined) {
   return "direct-origin";
 }
 
-export function applyRequestTagsToEvent<T extends SentryLikeEvent>(event: T) {
-  const headers = event.request?.headers;
+export function applyRequestTagsToEvent<T>(event: T): T {
+  const sentryEvent = event as T & SentryLikeEvent;
+
+  const headers = sentryEvent.request?.headers;
   const host = getHeader(headers, "host") || "unknown";
   const deliveryPath = resolveDeliveryPath(headers);
 
-  event.tags = {
-    ...event.tags,
+  sentryEvent.tags = {
+    ...sentryEvent.tags,
     delivery_path: deliveryPath,
     host,
   };
