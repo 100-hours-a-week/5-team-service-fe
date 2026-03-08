@@ -3,9 +3,7 @@ import * as Sentry from "@sentry/nextjs";
 function getCookie(name: string) {
   if (typeof document === "undefined") return "";
 
-  const value = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${name}=`));
+  const value = document.cookie.split("; ").find((row) => row.startsWith(`${name}=`));
 
   return value ? decodeURIComponent(value.split("=")[1]) : "";
 }
