@@ -1,0 +1,34 @@
+"use client";
+
+import MeetingDetail from "@/features/view-meeting-detail/ui/MeetingDetail";
+import type { GetMeetingDetailResponse } from "@/features/view-meeting-detail/model/types";
+import PageHeader from "@/components/layout/PageHeader";
+import { useRouter } from "next/navigation";
+import { PolicyOption } from "@/entities/policy/model/types";
+
+type MeetingDetailPageProps = {
+  meetingId: number;
+  initialData?: GetMeetingDetailResponse;
+  initialGenres?: PolicyOption[];
+};
+
+export default function MeetingDetailPage({
+  meetingId,
+  initialData,
+  initialGenres,
+}: MeetingDetailPageProps) {
+  const router = useRouter();
+
+  return (
+    <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="sticky top-0 z-20 bg-white">
+        <PageHeader title="모임 상세" onBack={() => router.push("/")} />
+      </div>
+      <MeetingDetail
+        meetingId={meetingId}
+        initialData={initialData}
+        initialGenres={initialGenres}
+      />
+    </div>
+  );
+}
