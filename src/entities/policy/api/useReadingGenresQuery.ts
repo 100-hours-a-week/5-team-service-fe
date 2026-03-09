@@ -2,15 +2,21 @@
 
 import { useQuery } from "@tanstack/react-query";
 import fetchReadingGenres from "./fetchReadingGenres";
+import type { PolicyOption } from "../model/types";
 
-export const useReadingGenresQuery = () => {
+type UseReadingGenresQueryParams = {
+  initialData?: PolicyOption[];
+};
+
+export const useReadingGenresQuery = ({ initialData }: UseReadingGenresQueryParams = {}) => {
   const {
     data: genres,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: ["policy", "reading-genres"],
+  } = useQuery<PolicyOption[]>({
+    queryKey: ["policy", "/policies/reading-genres"],
     queryFn: fetchReadingGenres,
+    initialData,
     staleTime: 1000 * 60 * 60,
   });
 
