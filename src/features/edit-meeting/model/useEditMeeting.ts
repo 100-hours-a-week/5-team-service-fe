@@ -24,7 +24,7 @@ export function useEditMeeting() {
 
     if (dirtyFields.meetingImageFile && meetingImageFile) {
       const { key } = await uploadImageToS3({ file: meetingImageFile, directory: "MEETING" });
-      request.meetingImagePath = key;
+      request.meetingImageKey = key;
     }
 
     if (dirtyFields.title) request.title = values.title;
