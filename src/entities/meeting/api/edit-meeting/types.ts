@@ -1,5 +1,5 @@
 export type EditMeetingRequest = {
-  meetingImagePath?: string;
+  meetingImageKey?: string;
   title?: string;
   description?: string;
   readingGenreId?: number;
