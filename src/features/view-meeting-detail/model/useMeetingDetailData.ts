@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { useReadingGenresQuery } from "@/entities/policy";
-import type { PolicyOption } from "@/entities/policy";
+import { useReadingGenresQuery } from "@/entities/policy/api/useReadingGenresQuery";
+import type { PolicyOption } from "@/entities/policy/model/types";
 import getMeetingDetail from "../api/getMeetingDetail";
 import type { GetMeetingDetailResponse } from "./types";
 
