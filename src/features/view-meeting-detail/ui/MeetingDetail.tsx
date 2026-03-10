@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Modal from "@/shared/ui/Modal";
+import useToggleMeetingBookmark from "@/features/bookmarks-meeting/model/useToggleMeetingBookmark";
 import { getMeetingJoinAction } from "../model/actionConfig";
 import { MEETING_DETAIL_MODAL_CONFIG } from "../model/modalConfig";
 import type { GetMeetingDetailResponse } from "../model/types";
@@ -35,8 +35,6 @@ export default function MeetingDetail({
   const meetingId = meetingIdFromProps ?? (params?.meetingId ? Number(params.meetingId) : null);
   const router = useRouter();
 
-  const [isBookmarked, setIsBookmarked] = useState(false);
-
   const { data, isLoading, isError, readingGenreName } = useMeetingDetailData({
     meetingId,
     initialData,
@@ -57,6 +55,11 @@ export default function MeetingDetail({
     enabled: Boolean(data?.meeting.meetingId),
   });
 
+  const { isPending: isBookmarkPending, toggle: toggleBookmark } = useToggleMeetingBookmark({
+    meetingId: data?.meeting.meetingId ?? meetingId ?? 0,
+    isBookmarked: data?.meeting.isBookmarked ?? false,
+  });
+
   if (isLoading) {
     return <FullScreenSpinner transparent />;
   }
@@ -70,6 +73,8 @@ export default function MeetingDetail({
   }
 
   const { meeting, rounds, participantsPreview } = data;
+  const isBookmarked = meeting.isBookmarked ?? false;
+
   const handleShare = async () => {
     const url =
       typeof window === "undefined" ? "" : `${window.location.origin}/meeting/detail/${meetingId}`;
@@ -140,7 +145,8 @@ export default function MeetingDetail({
 
       <MeetingDetailActionBar
         isBookmarked={isBookmarked}
-        onToggleBookmark={() => setIsBookmarked((prev) => !prev)}
+        onToggleBookmark={toggleBookmark}
+        isBookmarkPending={isBookmarkPending}
         isJoining={isJoining}
         actionLabel={action.label}
         actionTone={action.tone}
