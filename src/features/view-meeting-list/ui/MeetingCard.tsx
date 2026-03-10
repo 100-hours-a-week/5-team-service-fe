@@ -72,10 +72,10 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
             toggleBookmark();
           }}
           disabled={isBookmarkPending}
-          className="absolute right-2 top-2 z-20 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-70"
+          className="absolute right-2 top-2 z-10 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isBookmarked ? (
-            <BookmarkSolidIcon className="h-6 w-6 fill-primary stroke-white [stroke-width:1.8] drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]" />
+            <BookmarkSolidIcon className="h-6 w-6 fill-primary stroke-gray-purple [stroke-width:1.8] drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]" />
           ) : (
             <BookmarkOutlineIcon className="h-6 w-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.45)]" />
           )}
