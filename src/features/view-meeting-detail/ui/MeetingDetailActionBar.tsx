@@ -4,6 +4,7 @@ import { BookmarkIcon as BookmarkSolidIcon } from "@heroicons/react/24/solid";
 type MeetingDetailActionBarProps = {
   isBookmarked: boolean;
   onToggleBookmark: () => void;
+  isBookmarkPending?: boolean;
   isJoining: boolean;
   actionLabel: string;
   actionTone: "active" | "inactive";
@@ -14,6 +15,7 @@ type MeetingDetailActionBarProps = {
 export default function MeetingDetailActionBar({
   isBookmarked,
   onToggleBookmark,
+  isBookmarkPending = false,
   isJoining,
   actionLabel,
   actionTone,
@@ -27,6 +29,7 @@ export default function MeetingDetailActionBar({
           type="button"
           aria-label={isBookmarked ? "북마크 해제" : "북마크 추가"}
           onClick={onToggleBookmark}
+          disabled={isBookmarkPending}
           className="flex h-12 w-14 items-center justify-center rounded-lg bg-gray-100 text-primary"
         >
           {isBookmarked ? (

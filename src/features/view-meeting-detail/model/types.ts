@@ -4,6 +4,7 @@ export type GetMeetingDetailResponse = {
     createdAt: string;
     status: "RECRUITING" | "FINISHED" | "CANCELED";
     meetingImagePath: string;
+    isBookmarked?: boolean;
     title: string;
     description: string;
     readingGenreId: number;
