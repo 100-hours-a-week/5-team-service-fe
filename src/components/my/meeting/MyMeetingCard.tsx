@@ -1,6 +1,7 @@
 "use client";
 
 import formatKoreanDate from "@/lib/formatKoreanDate";
+import Image from "next/image";
 import Link from "next/link";
 
 type MyMeetingCardProps = {
@@ -33,7 +34,13 @@ export default function MyMeetingCard({
     >
       <div className="relative h-32 w-full overflow-hidden rounded-2xl bg-gray-100">
         {meetingImagePath ? (
-          <img src={meetingImagePath} alt={title} className="h-full w-full object-cover" />
+          <Image
+            src={meetingImagePath}
+            alt={title}
+            fill
+            sizes="(max-width: 500px) 100vw, 500px"
+            className="object-cover"
+          />
         ) : null}
       </div>
       <div className="mt-4 space-y-1">
