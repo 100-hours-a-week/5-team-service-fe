@@ -51,8 +51,8 @@ export default function Modal({
             : "animate-out fade-out zoom-out-95 slide-out-to-bottom-2 duration-200"
         }`}
       >
-        <h2 className="text-subheading text-gray-900">{title}</h2>
-        {description ? <p className="mt-3 text-label text-gray-500">{description}</p> : null}
+        <h2 className="text-[18px] !font-[600] text-gray-900">{title}</h2>
+        {description ? <p className="mt-2 text-label text-gray-400">{description}</p> : null}
 
         <div className={`mt-7 grid gap-3 ${cancelLabel ? "grid-cols-2" : "grid-cols-1"}`}>
           {cancelLabel ? (
