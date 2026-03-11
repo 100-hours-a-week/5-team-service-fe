@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import formatKoreanDate from "@/lib/formatKoreanDate";
 import { apiFetch } from "@/lib/api/apiFetch";
-import { useAuthStore } from "@/stores/authStore";
 
 type RecommendedMeeting = {
   meetingId: number;
@@ -18,7 +18,6 @@ type RecommendedMeeting = {
 };
 
 export default function RecommendedMeetingCarousel() {
-  const initialized = useAuthStore((state) => state.initialized);
   const {
     data: response,
     isLoading,
@@ -27,7 +26,6 @@ export default function RecommendedMeetingCarousel() {
     queryKey: ["recommendations", "meetings"],
     queryFn: () => apiFetch<RecommendedMeeting[]>("/recommendations/meetings", {}),
     staleTime: 1000 * 60 * 5,
-    enabled: initialized,
   });
 
   const items = useMemo(() => response ?? [], [response]);
@@ -60,6 +58,7 @@ export default function RecommendedMeetingCarousel() {
 
   const indicatorIndex = total ? (activeIndex - 1 + total) % total : 0;
   const canNavigate = total > 1;
+  const shouldShowFallbackSkeleton = isLoading || (!isError && total === 0);
   const goNext = useCallback(() => {
     if (!canNavigate) return;
     setActiveIndex((prev) => (prev >= total ? total + 1 : prev + 1));
@@ -69,7 +68,7 @@ export default function RecommendedMeetingCarousel() {
     if (!canNavigate) return;
     setActiveIndex((prev) => (prev <= 1 ? 0 : prev - 1));
     setIsAnimating(true);
-  }, [canNavigate, total]);
+  }, [canNavigate]);
 
   useEffect(() => {
     if (total <= 1) return;
@@ -81,51 +80,67 @@ export default function RecommendedMeetingCarousel() {
 
   return (
     <div className="group relative">
-      <div className="overflow-hidden">
-        <div
-          className="flex"
-          style={{
-            transform: `translateX(-${activeIndex * 100}%)`,
-            transition: isAnimating ? "transform 350ms ease" : "none",
-          }}
-        >
-          {extendedItems.map((item, idx) => {
-            return (
-              <Link
-                key={`${item.meetingId}-${idx}`}
-                href={`/meeting/detail/${item.meetingId}`}
-                aria-label={`${item.title} 모임 상세`}
-                className="flex w-full shrink-0 items-center gap-4 border border-gray-100 bg-white pl-5 shadow-md"
-              >
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="line-clamp-2 text-body-emphasis !text-[18px] font-semibold text-gray-900">
-                    {item.title}
-                  </p>
-                  <p className="text-sm font-semibold text-gray-800">{item.readingGenreName}</p>
-                  <p className="text-body-2 text-gray-600">
-                    모임장{" "}
-                    <span className="font-semibold text-gray-900">{item.leaderNickname}</span>
-                  </p>
-                  <p className="text-body-2 text-gray-600">
-                    모집 마감일{" "}
-                    <span className="font-semibold text-gray-900">
-                      {formatKoreanDate(item.recruitmentDeadline)}
-                    </span>
-                  </p>
-                </div>
-                <div className="relative h-40 w-60 shrink-0 overflow-hidden bg-gray-100">
-                  <img
-                    src={item.meetingImagePath}
-                    alt={`${item.title} 이미지`}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-white to-transparent" />
-                </div>
-              </Link>
-            );
-          })}
+      {shouldShowFallbackSkeleton ? (
+        <div className="flex w-full items-center gap-4 border border-gray-100 bg-white pl-5 shadow-md">
+          <div className="min-w-0 flex-1 space-y-2 py-4">
+            <div className="h-6 w-2/3 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-1/3 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-gray-200" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-gray-200" />
+          </div>
+          <div className="relative h-40 w-60 shrink-0 overflow-hidden bg-gray-100">
+            <div className="h-full w-full animate-pulse bg-gray-200" />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="overflow-hidden">
+          <div
+            className="flex"
+            style={{
+              transform: `translateX(-${activeIndex * 100}%)`,
+              transition: isAnimating ? "transform 350ms ease" : "none",
+            }}
+          >
+            {extendedItems.map((item, idx) => {
+              return (
+                <Link
+                  key={`${item.meetingId}-${idx}`}
+                  href={`/meeting/detail/${item.meetingId}`}
+                  aria-label={`${item.title} 모임 상세`}
+                  className="flex w-full shrink-0 items-center gap-4 border border-gray-100 bg-white pl-5 shadow-md"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="line-clamp-2 text-body-emphasis !text-[18px] font-semibold text-gray-900">
+                      {item.title}
+                    </p>
+                    <p className="text-sm font-semibold text-gray-800">{item.readingGenreName}</p>
+                    <p className="text-body-2 text-gray-600">
+                      모임장{" "}
+                      <span className="font-semibold text-gray-900">{item.leaderNickname}</span>
+                    </p>
+                    <p className="text-body-2 text-gray-600">
+                      모집 마감일{" "}
+                      <span className="font-semibold text-gray-900">
+                        {formatKoreanDate(item.recruitmentDeadline)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="relative h-40 w-60 shrink-0 overflow-hidden bg-gray-100">
+                    <Image
+                      src={item.meetingImagePath}
+                      alt={`${item.title} 이미지`}
+                      fill
+                      sizes="240px"
+                      className="object-cover"
+                    />
+                    <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-white to-transparent" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {canNavigate ? (
         <>
           <div
@@ -161,9 +176,6 @@ export default function RecommendedMeetingCarousel() {
             ) : null}
           </div>
         </>
-      ) : null}
-      {isLoading ? (
-        <div className="py-6 text-center text-sm text-gray-400">추천 모임을 불러오는 중...</div>
       ) : null}
       {isError ? (
         <div className="py-6 text-center text-sm text-gray-400">추천 모임을 불러오지 못했어요.</div>
