@@ -4,6 +4,7 @@ import createMeetingBookmark from "../api/createMeetingBookmarks";
 import deleteMeetingBookmark from "../api/deleteMeetingBookmark";
 import type { GetMeetingDetailResponse } from "@/features/view-meeting-detail/model/types";
 import type { MeetingListResponse } from "@/features/view-meeting-list/model/types";
+import type { GetMeetingBookmarkResponse } from "../model/types";
 
 type UseToggleMeetingBookmarkParams = {
   meetingId: number;
@@ -41,6 +42,39 @@ function patchMeetingListBookmark(
   };
 }
 
+function patchBookmarkedMeetingList(
+  previous: InfiniteData<MeetingListResponse> | undefined,
+  meetingId: number,
+  nextBookmarked: boolean,
+) {
+  if (!previous) return previous;
+
+  return {
+    ...previous,
+    pages: previous.pages.map((page) => ({
+      ...page,
+      items: page.items
+        .map((item) =>
+          item.meetingId === meetingId ? { ...item, isBookmarked: nextBookmarked } : item,
+        )
+        .filter((item) => item.isBookmarked !== false),
+    })),
+  };
+}
+
+function patchMeetingBookmark(
+  previous: GetMeetingBookmarkResponse | undefined,
+  nextBookmarked: boolean,
+) {
+  if (!previous) {
+    return { isBookmarked: nextBookmarked };
+  }
+  return {
+    ...previous,
+    isBookmarked: nextBookmarked,
+  };
+}
+
 export default function useToggleMeetingBookmark({
   meetingId,
   isBookmarked,
@@ -58,11 +92,17 @@ export default function useToggleMeetingBookmark({
     onMutate: async (nextBookmarked) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: ["meetingDetail", meetingId] }),
+        queryClient.cancelQueries({ queryKey: ["meetingBookmark", meetingId] }),
         queryClient.cancelQueries({ queryKey: ["meetings"] }),
+        queryClient.cancelQueries({ queryKey: ["bookmarkedMeetings"] }),
       ]);
 
       const previousMeetingDetail = queryClient.getQueryData<GetMeetingDetailResponse>([
         "meetingDetail",
+        meetingId,
+      ]);
+      const previousMeetingBookmark = queryClient.getQueryData<GetMeetingBookmarkResponse>([
+        "meetingBookmark",
         meetingId,
       ]);
       const previousMeetingsQueries = queryClient.getQueriesData<InfiniteData<MeetingListResponse>>(
@@ -70,6 +110,11 @@ export default function useToggleMeetingBookmark({
           queryKey: ["meetings"],
         },
       );
+      const previousBookmarkedMeetingsQueries = queryClient.getQueriesData<
+        InfiniteData<MeetingListResponse>
+      >({
+        queryKey: ["bookmarkedMeetings"],
+      });
 
       queryClient.setQueryData<GetMeetingDetailResponse | undefined>(
         ["meetingDetail", meetingId],
@@ -80,19 +125,34 @@ export default function useToggleMeetingBookmark({
         { queryKey: ["meetings"] },
         (old) => patchMeetingListBookmark(old, meetingId, nextBookmarked),
       );
+      queryClient.setQueriesData<InfiniteData<MeetingListResponse> | undefined>(
+        { queryKey: ["bookmarkedMeetings"] },
+        (old) => patchBookmarkedMeetingList(old, meetingId, nextBookmarked),
+      );
 
-      return { previousMeetingDetail, previousMeetingsQueries };
+      queryClient.setQueryData<GetMeetingBookmarkResponse | undefined>(
+        ["meetingBookmark", meetingId],
+        (old) => patchMeetingBookmark(old, nextBookmarked),
+      );
+
+      return {
+        previousMeetingDetail,
+        previousMeetingBookmark,
+        previousMeetingsQueries,
+        previousBookmarkedMeetingsQueries,
+      };
     },
     onError: (_error, _nextBookmarked, context) => {
       if (!context) return;
 
       queryClient.setQueryData(["meetingDetail", meetingId], context.previousMeetingDetail);
+      queryClient.setQueryData(["meetingBookmark", meetingId], context.previousMeetingBookmark);
       context.previousMeetingsQueries.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);
       });
-    },
-    onSettled: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["meetingDetail", meetingId] });
+      context.previousBookmarkedMeetingsQueries.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
     },
   });
 
