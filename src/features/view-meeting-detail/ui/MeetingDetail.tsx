@@ -35,15 +35,20 @@ export default function MeetingDetail({
   const meetingId = meetingIdFromProps ?? (params?.meetingId ? Number(params.meetingId) : null);
   const router = useRouter();
 
-  const { data, isLoading, isError, readingGenreName } = useMeetingDetailData({
-    meetingId,
-    initialData,
-    initialGenres,
-  });
+  const {
+    data,
+    isBookmarked,
+    participationStatus,
+    participantTotalCount,
+    participantProfileImages,
+    isLoading,
+    isError,
+    readingGenreName,
+  } = useMeetingDetailData({ meetingId, initialData, initialGenres });
 
   const action = getMeetingJoinAction({
     meetingStatus: data?.meeting.status,
-    participationStatus: data?.participantsPreview.myParticipationStatus,
+    participationStatus,
   });
 
   const { isJoining, modalType, isClosing, closeModal, handleJoin } = useMeetingJoin({
@@ -57,10 +62,10 @@ export default function MeetingDetail({
 
   const { isPending: isBookmarkPending, toggle: toggleBookmark } = useToggleMeetingBookmark({
     meetingId: data?.meeting.meetingId ?? meetingId ?? 0,
-    isBookmarked: data?.meeting.isBookmarked ?? false,
+    isBookmarked,
   });
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <FullScreenSpinner transparent />;
   }
 
@@ -72,8 +77,7 @@ export default function MeetingDetail({
     );
   }
 
-  const { meeting, rounds, participantsPreview } = data;
-  const isBookmarked = meeting.isBookmarked ?? false;
+  const { meeting, rounds } = data;
 
   const handleShare = async () => {
     const url =
@@ -137,9 +141,9 @@ export default function MeetingDetail({
         />
         <MeetingMemberStatusSection
           sectionRef={assignSectionRef("members")}
-          currentCount={meeting.currentCount}
+          currentCount={participantTotalCount ?? meeting.currentCount}
           capacity={meeting.capacity}
-          profileImages={participantsPreview.profileImages}
+          profileImages={participantProfileImages}
         />
       </div>
 
