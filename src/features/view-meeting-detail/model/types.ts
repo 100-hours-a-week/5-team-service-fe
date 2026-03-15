@@ -1,3 +1,15 @@
+type MeetingRoundInfo = {
+  roundNo: number;
+  date: string;
+  book: {
+    title: string;
+    authors: string;
+    publisher: string;
+    thumbnailUrl: string;
+    publishedAt: string;
+  };
+};
+
 export type GetMeetingDetailResponse = {
   meeting: {
     meetingId: number;
@@ -23,22 +35,5 @@ export type GetMeetingDetailResponse = {
       intro: string;
     };
   };
-  rounds: {
-    roundNo: number;
-    date: string;
-    book: {
-      title: string;
-      authors: string;
-      publisher: string;
-      thumbnailUrl: string;
-      publishedAt: string;
-    };
-  }[];
-  participantsPreview: {
-    previewCount: number;
-    profileImages: string[];
-    myParticipationStatus: "NONE" | "PENDING" | "APPROVED" | "LEFT" | "REJECTED" | "KICKED";
-  };
+  rounds: MeetingRoundInfo[];
 };
-
-export type MeetingDetailResponse = GetMeetingDetailResponse;
