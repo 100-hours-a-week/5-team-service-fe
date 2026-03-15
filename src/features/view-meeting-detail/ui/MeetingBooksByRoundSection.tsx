@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import type { MeetingDetailResponse } from "../model/types";
+import { GetMeetingDetailResponse } from "../model/types";
 
 type MeetingBooksByRoundSectionProps = {
   sectionRef: (element: HTMLDivElement | null) => void;
-  rounds: MeetingDetailResponse["rounds"];
+  rounds: GetMeetingDetailResponse["rounds"];
 };
 
 export default function MeetingBooksByRoundSection({

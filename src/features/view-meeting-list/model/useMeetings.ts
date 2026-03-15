@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMeetingsInfiniteQuery } from "./useMeetingsInfiniteQuery";
 import { useReadingGenresQuery } from "@/entities/policy/api/useReadingGenresQuery";
+import type { InfiniteData } from "@tanstack/react-query";
 import {
   clearMeetingListRestore,
   getMeetingListRestore,
   saveMeetingListRestore,
 } from "../lib/meetingListRestore";
 import { useInView } from "react-intersection-observer";
+import type { MeetingListResponse } from "./types";
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 4;
 
-export const useMeetings = () => {
+export const useMeetings = ({
+  initialData,
+}: {
+  initialData?: InfiniteData<MeetingListResponse, number | undefined>;
+} = {}) => {
   const { genres } = useReadingGenresQuery();
   const genreMap = useMemo(() => new Map(genres?.map((genre) => [genre.id, genre.name])), [genres]);
 
@@ -18,8 +24,9 @@ export const useMeetings = () => {
   const pageSize = restore?.size ?? ITEMS_PER_PAGE;
   const [restoreCompleted, setRestoreCompleted] = useState(() => !restore);
 
+  const queryInitialData = restore ? undefined : initialData;
   const { meetings, isLoading, isError, fetchNextPage, isFetchingNextPage, hasNextPage } =
-    useMeetingsInfiniteQuery({ size: pageSize });
+    useMeetingsInfiniteQuery({ size: pageSize, initialData: queryInitialData });
 
   useEffect(() => {
     if (!restore || restoreCompleted || isLoading) return;

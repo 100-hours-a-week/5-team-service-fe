@@ -1,10 +1,16 @@
 "use client";
 
-import { MeetingCard } from "./MeetingCard";
-import { Skeleton } from "./Skeleton";
+import type { InfiniteData } from "@tanstack/react-query";
+import { Skeleton } from "@/entities/meeting/ui/MeetingCardSkeleton";
+import { MeetingCard } from "@/entities/meeting/ui/MeetingCard";
+import type { MeetingListResponse } from "../model/types";
 import { useMeetings } from "../model/useMeetings";
 
-export const MeetingList = () => {
+export const MeetingList = ({
+  initialData,
+}: {
+  initialData?: InfiniteData<MeetingListResponse, number | undefined>;
+}) => {
   const {
     meetings,
     isError,
@@ -13,7 +19,7 @@ export const MeetingList = () => {
     onClickMeeting,
     showInitSkeleton,
     showNextSkeleton,
-  } = useMeetings();
+  } = useMeetings({ initialData });
 
   return (
     <div className="px-6 my-10">

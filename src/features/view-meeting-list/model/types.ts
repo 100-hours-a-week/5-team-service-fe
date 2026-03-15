@@ -9,6 +9,17 @@ export type MeetingListResponse = {
   };
 };
 
+export type GetMeetingListServerParams = {
+  size?: number;
+  cursorId?: number;
+  requestInit?: RequestInit & { timeoutMs?: number };
+};
+
+export type GetMeetingListParams = {
+  size?: number;
+  cursorId?: number;
+};
+
 export type MeetingListRestore = {
   anchorY: number;
   clickedIndex: number;

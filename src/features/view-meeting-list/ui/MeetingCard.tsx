@@ -42,6 +42,7 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
     meetingId,
     meetingImagePath,
     isBookmarked = false,
+    isRecruiting = true,
     title,
     leaderNickname,
     capacity,
@@ -57,7 +58,7 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
   return (
     <Link
       href={`/meeting/detail/${meetingId}`}
-      className="flex flex-col h-[330px] rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
+      className="relative flex h-[330px] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
       aria-label={`${title} 모임 상세 보기`}
       onClickCapture={onClick}
     >
@@ -113,6 +114,14 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
           </div>
         </div>
       </div>
+
+      {!isRecruiting ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-gray-800/45">
+          <p className="px-4 text-center text-body-1 !font-[700] text-white">
+            모집이 종료된 모임입니다
+          </p>
+        </div>
+      ) : null}
     </Link>
   );
 }
