@@ -18,11 +18,18 @@ export default function MeetingDetailPage({
   initialGenres,
 }: MeetingDetailPageProps) {
   const router = useRouter();
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/");
+  };
 
   return (
     <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden">
       <div className="sticky top-0 z-20 bg-white">
-        <PageHeader title="모임 상세" onBack={() => router.push("/")} />
+        <PageHeader title="모임 상세" onBack={handleBack} />
       </div>
       <MeetingDetail
         meetingId={meetingId}
