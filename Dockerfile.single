@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-bookworm-slim
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN corepack enable
+RUN corepack prepare pnpm@9.15.9 --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN --mount=type=secret,id=frontend_env,target=/run/secrets/frontend_env \
+    set -a && . /run/secrets/frontend_env && set +a \
+    && test -n "${NEXT_PUBLIC_API_BASE_URL}" \
+    && pnpm build
+
+EXPOSE 3000
+CMD ["node", ".next/standalone/server.js"]
