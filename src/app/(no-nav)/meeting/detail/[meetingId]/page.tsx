@@ -52,6 +52,11 @@ export async function generateMetadata({
 }
 
 export async function generateStaticParams() {
+  if (!process.env.NEXT_PUBLIC_API_BASE_URL) {
+    console.warn("[meeting/detail] skip generateStaticParams: NEXT_PUBLIC_API_BASE_URL missing");
+    return [];
+  }
+
   const meetingIds: string[] = [];
   let cursorId: number | undefined;
 
