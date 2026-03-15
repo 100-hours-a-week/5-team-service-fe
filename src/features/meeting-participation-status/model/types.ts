@@ -1,3 +1,7 @@
+export type GetMeetingParticipationStatusReqeust = {
+  meetingId: number;
+};
+
 export type MeetingParticipationStatus =
   | "NONE"
   | "PENDING"
