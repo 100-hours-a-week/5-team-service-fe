@@ -1,3 +1,4 @@
+import { MeetingParticipationStatus } from "@/features/meeting-participation-status/model/types";
 import type { GetMeetingDetailResponse } from "./types";
 
 type ActionTone = "active" | "inactive";
@@ -9,7 +10,7 @@ export type MeetingJoinAction = {
 };
 
 type MeetingStatus = GetMeetingDetailResponse["meeting"]["status"];
-type ParticipationStatus = GetMeetingDetailResponse["participantsPreview"]["myParticipationStatus"];
+type ParticipationStatus = MeetingParticipationStatus;
 
 const DEFAULT_JOIN_ACTION: MeetingJoinAction = {
   label: "모임 가입하기",
