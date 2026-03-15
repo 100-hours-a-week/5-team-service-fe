@@ -38,6 +38,7 @@ export default function useMeetingJoin({ meetingId, joinDisabled }: UseMeetingJo
     try {
       await participateMeeting({ meetingId });
       await queryClient.invalidateQueries({ queryKey: ["meetingDetail", meetingId] });
+      await queryClient.invalidateQueries({ queryKey: ["meetingParticipationStatus", meetingId] });
       router.refresh();
     } catch (error) {
       const apiError = error as { code?: string; status?: number };
