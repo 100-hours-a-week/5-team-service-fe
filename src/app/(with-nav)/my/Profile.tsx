@@ -108,6 +108,7 @@ export default function Profile() {
       </div>
 
       <div className="mt-6 border-t border-gray-200">
+        <MyPageOption href="/my/reviews" label="내가 쓴 후기" />
         <MyPageOption label="로그아웃" onClick={() => handleOpenModal("logout")} />
         <MyPageOption label="회원탈퇴" onClick={() => handleOpenModal("withdraw")} />
       </div>
