@@ -2,6 +2,7 @@
 
 import MeetingDetail from "@/features/view-meeting-detail/ui/MeetingDetail";
 import type { GetMeetingDetailResponse } from "@/features/view-meeting-detail/model/types";
+import type { MeetingReviewListResponse } from "@/features/view-meeting-review-list/model/types";
 import PageHeader from "@/components/layout/PageHeader";
 import { useRouter } from "next/navigation";
 import { PolicyOption } from "@/entities/policy/model/types";
@@ -10,12 +11,14 @@ type MeetingDetailPageProps = {
   meetingId: number;
   initialData?: GetMeetingDetailResponse;
   initialGenres?: PolicyOption[];
+  initialReviewPreview?: MeetingReviewListResponse | null;
 };
 
 export default function MeetingDetailPage({
   meetingId,
   initialData,
   initialGenres,
+  initialReviewPreview,
 }: MeetingDetailPageProps) {
   const router = useRouter();
   const handleBack = () => {
@@ -35,6 +38,7 @@ export default function MeetingDetailPage({
         meetingId={meetingId}
         initialData={initialData}
         initialGenres={initialGenres}
+        initialReviewPreview={initialReviewPreview}
       />
     </div>
   );
