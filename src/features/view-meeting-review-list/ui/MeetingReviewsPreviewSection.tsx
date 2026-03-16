@@ -27,9 +27,7 @@ export default function MeetingReviewsPreviewSection({
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-gray-200 px-4 py-5 text-sm text-gray-500">
-          아직 등록된 후기가 없어요.
-        </div>
+        <div className="text-sm text-gray-500">아직 등록된 후기가 없어요.</div>
       )}
 
       {showMoreButton ? (
