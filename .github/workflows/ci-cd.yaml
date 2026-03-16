@@ -165,26 +165,6 @@ jobs:
           EOF
           fi
 
-      - name: Check outbound access to frontend API base
-        run: |
-          set -eu
-          set -a
-          . ./.env.build
-          set +a
-
-          RUNNER_PUBLIC_IP="$(curl -fsS --max-time 10 https://checkip.amazonaws.com || curl -fsS --max-time 10 https://api.ipify.org)"
-          API_HOST="$(printf '%s' "$NEXT_PUBLIC_API_BASE_URL" | awk -F/ '{print $3}')"
-
-          echo "Runner public IP: ${RUNNER_PUBLIC_IP}"
-          echo "Configured API base: ${NEXT_PUBLIC_API_BASE_URL}"
-          echo "Resolved API host: ${API_HOST}"
-
-          echo "== curl: api base =="
-          curl -I --max-time 15 --retry 2 --retry-delay 1 "$NEXT_PUBLIC_API_BASE_URL"
-
-          echo "== curl: meetings endpoint =="
-          curl -I --max-time 15 --retry 2 --retry-delay 1 "${NEXT_PUBLIC_API_BASE_URL}/meetings?size=1"
-
       - name: Build and push Frontend image
         uses: docker/build-push-action@v6
         with:
