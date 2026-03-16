@@ -69,7 +69,7 @@ export default function MeetingReviewCardDetail({ review }: MeetingReviewCardDet
 
   return (
     <>
-      <article className="border-b border-gray-200 px-3 py-5 first:pt-2">
+      <article className="border-b border-gray-200 py-5 first:pt-2">
         <div className="flex items-start gap-4">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-gray-200">
             {review.reviewerProfileImageUrl ? (
