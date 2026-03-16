@@ -16,7 +16,7 @@ export default function ReviewCard({ review, onClick }: ReviewCardProps) {
 
   return (
     <Link
-      href={`/my/review/${review.reviewId}`}
+      href={`/my/reviews/${review.reviewId}`}
       onClick={onClick}
       className="block border-b border-gray-200 py-5 first:pt-2"
     >
