@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import getMeetingDetailServer from "@/features/view-meeting-detail/api/getMeetingDetailServer";
 import type { GetMeetingDetailResponse } from "@/features/view-meeting-detail/model/types";
+import getMeetingReviewsServer from "@/features/view-meeting-review-list/api/getMeetingReviewsServer";
+import type { MeetingReviewListResponse } from "@/features/view-meeting-review-list/model/types";
 import MeetingDetailPage from "@/views/view-meeting-detail/ui/Page";
 import getReadingGenresServer from "@/entities/policy/api/getReadingGenresServer";
 
@@ -58,11 +60,20 @@ export default async function Page({ params }: { params: Promise<{ meetingId: st
 
   let initialData: GetMeetingDetailResponse;
   let initialGenres: Awaited<ReturnType<typeof getReadingGenresServer>>;
+  let initialReviewPreview: MeetingReviewListResponse | null = null;
 
   try {
-    [initialData, initialGenres] = await Promise.all([
+    [initialData, initialGenres, initialReviewPreview] = await Promise.all([
       getMeetingDetailServer(meetingId, revalidate) as Promise<GetMeetingDetailResponse>,
       getReadingGenresServer(revalidate),
+      getMeetingReviewsServer({
+        meetingId,
+        size: 4,
+        requestInit: {
+          cache: "force-cache",
+          next: { revalidate },
+        },
+      }).catch(() => null),
     ]);
   } catch {
     notFound();
@@ -73,6 +84,7 @@ export default async function Page({ params }: { params: Promise<{ meetingId: st
       meetingId={meetingId}
       initialData={initialData}
       initialGenres={initialGenres}
+      initialReviewPreview={initialReviewPreview}
     />
   );
 }
