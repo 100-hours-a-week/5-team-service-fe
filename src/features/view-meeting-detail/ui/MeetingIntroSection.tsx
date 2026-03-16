@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { HandThumbUpIcon, StarIcon } from "@heroicons/react/24/outline";
+import type { ReactNode } from "react";
 
 type MeetingIntroSectionProps = {
   introRef: (element: HTMLDivElement | null) => void;
@@ -8,6 +9,7 @@ type MeetingIntroSectionProps = {
   leaderNickname: string;
   leaderIntro: string;
   leaderProfileImagePath: string;
+  reviewSection?: ReactNode;
 };
 
 export default function MeetingIntroSection({
@@ -17,6 +19,7 @@ export default function MeetingIntroSection({
   leaderNickname,
   leaderIntro,
   leaderProfileImagePath,
+  reviewSection,
 }: MeetingIntroSectionProps) {
   return (
     <section className="space-y-10 px-0 py-5">
@@ -74,6 +77,8 @@ export default function MeetingIntroSection({
         <p className="mt-7 whitespace-pre-line text-label leading-relaxed text-gray-800">
           {leaderIntro}
         </p>
+
+        {reviewSection}
       </div>
     </section>
   );

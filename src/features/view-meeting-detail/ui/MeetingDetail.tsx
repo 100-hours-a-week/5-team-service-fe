@@ -9,6 +9,8 @@ import type { GetMeetingDetailResponse } from "../model/types";
 import useMeetingDetailData from "../model/useMeetingDetailData";
 import useMeetingJoin from "../model/useMeetingJoin";
 import useMeetingDetailTabs from "../model/useMeetingDetailTabs";
+import type { MeetingReviewListResponse } from "@/features/view-meeting-review-list/model/types";
+import MeetingReviewsPreviewSection from "@/features/view-meeting-review-list/ui/MeetingReviewsPreviewSection";
 import MeetingBooksByRoundSection from "./MeetingBooksByRoundSection";
 import MeetingDetailActionBar from "./MeetingDetailActionBar";
 import MeetingCoverImage from "./MeetingCoverImage";
@@ -24,12 +26,14 @@ type MeetingDetailProps = {
   meetingId?: number;
   initialData?: GetMeetingDetailResponse;
   initialGenres?: PolicyOption[];
+  initialReviewPreview?: MeetingReviewListResponse | null;
 };
 
 export default function MeetingDetail({
   meetingId: meetingIdFromProps,
   initialData,
   initialGenres,
+  initialReviewPreview,
 }: MeetingDetailProps = {}) {
   const params = useParams<{ meetingId?: string }>();
   const meetingId = meetingIdFromProps ?? (params?.meetingId ? Number(params.meetingId) : null);
@@ -130,6 +134,14 @@ export default function MeetingDetail({
           leaderNickname={meeting.leader.nickname}
           leaderIntro={meeting.leader.intro}
           leaderProfileImagePath={meeting.leader.profileImagePath}
+          reviewSection={
+            initialReviewPreview ? (
+              <MeetingReviewsPreviewSection
+                meetingId={meeting.meetingId}
+                reviewResponse={initialReviewPreview}
+              />
+            ) : null
+          }
         />
         <MeetingBooksByRoundSection sectionRef={assignSectionRef("books")} rounds={rounds} />
         <MeetingDetailInfoSection
