@@ -1,10 +1,7 @@
+import Image from "next/image";
 import type { MeetingRound } from "../../api/types";
-import {
-  reportActionLabel,
-  ReportStatus,
-  reportStatusClass,
-  reportStatusLabel,
-} from "../../model/types";
+import { reportStatusClass, reportStatusLabel } from "../../model/types";
+import resolveBookReportAction from "../../model/resolveBookReportAction";
 
 type BookReportSubmitProps = {
   round: MeetingRound;
@@ -12,9 +9,8 @@ type BookReportSubmitProps = {
 };
 
 export default function BookReportSubmit({ round, onOpenBookReport }: BookReportSubmitProps) {
-  const rawStatus = round.bookReport.status ?? "NOT_SUBMITTED";
-  const status: ReportStatus =
-    rawStatus in reportStatusLabel ? (rawStatus as ReportStatus) : "NOT_SUBMITTED";
+  const reportAction = resolveBookReportAction(round);
+  const status = reportAction.status;
 
   return (
     <section className="space-y-2">
@@ -28,12 +24,14 @@ export default function BookReportSubmit({ round, onOpenBookReport }: BookReport
       <p className="text-xs text-gray-500">모임 시작 전까지 독후감을 제출해야합니다.</p>
 
       <div className="flex items-center gap-4 rounded-2xl border border-gray-200 p-4">
-        <div className="h-20 w-16 overflow-hidden rounded-xl bg-gray-100">
+        <div className="relative h-20 w-16 overflow-hidden rounded-xl bg-gray-100">
           {round.book.thumbnailUrl ? (
-            <img
+            <Image
               src={round.book.thumbnailUrl}
               alt={round.book.title}
-              className="h-full w-full object-cover"
+              fill
+              sizes="64px"
+              className="object-cover"
             />
           ) : null}
         </div>
@@ -48,9 +46,14 @@ export default function BookReportSubmit({ round, onOpenBookReport }: BookReport
       <button
         type="button"
         onClick={onOpenBookReport}
-        className="mt-5 h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white"
+        disabled={reportAction.disabled}
+        className={`mt-5 h-12 w-full rounded-xl text-sm font-semibold ${
+          reportAction.disabled
+            ? "cursor-not-allowed bg-gray-200 text-gray-500"
+            : "bg-primary text-white"
+        }`}
       >
-        {reportActionLabel[status]}
+        {reportAction.label}
       </button>
     </section>
   );
