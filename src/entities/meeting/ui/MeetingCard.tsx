@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { MeetingItem } from "@/entities/meeting/model/types";
@@ -35,9 +35,10 @@ type MeetingCardProps = {
   meeting: MeetingItem;
   genreName?: string;
   onClick?: () => void;
+  onImpression?: (meetingId: number) => void;
 };
 
-function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
+function MeetingCardBase({ meeting, genreName, onClick, onImpression }: MeetingCardProps) {
   const {
     meetingId,
     meetingImagePath,
@@ -54,13 +55,44 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
     meetingId,
     isBookmarked,
   });
+  const cardRef = useRef<HTMLAnchorElement | null>(null);
+
+  useEffect(() => {
+    const target = cardRef.current;
+    if (!target || !onImpression) return;
+
+    let wasVisible = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+
+        const isVisible = entry.isIntersecting && entry.intersectionRatio > 0;
+        if (isVisible && !wasVisible) {
+          onImpression(meetingId);
+        }
+
+        wasVisible = isVisible;
+      },
+      {
+        root: null,
+        threshold: 0,
+      },
+    );
+
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+    };
+  }, [meetingId, onImpression]);
 
   return (
     <Link
+      ref={cardRef}
       href={`/meeting/detail/${meetingId}`}
       className="relative flex h-[330px] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
       aria-label={`${title} 모임 상세 보기`}
-      onClickCapture={onClick}
+      onClick={onClick}
     >
       <div className="relative">
         <MeetingCardImage meetingImagePath={meetingImagePath} title={title} />
