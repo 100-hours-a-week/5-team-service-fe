@@ -9,6 +9,7 @@ import type { GetMeetingDetailResponse } from "../model/types";
 import useMeetingDetailData from "../model/useMeetingDetailData";
 import useMeetingJoin from "../model/useMeetingJoin";
 import useMeetingDetailTabs from "../model/useMeetingDetailTabs";
+import useMeetingDetailDwellTime from "../model/useMeetingDetailDwellTime";
 import type { MeetingReviewListResponse } from "@/features/view-meeting-review-list/model/types";
 import MeetingReviewsPreviewSection from "@/features/view-meeting-review-list/ui/MeetingReviewsPreviewSection";
 import MeetingBooksByRoundSection from "./MeetingBooksByRoundSection";
@@ -67,6 +68,10 @@ export default function MeetingDetail({
   const { isPending: isBookmarkPending, toggle: toggleBookmark } = useToggleMeetingBookmark({
     meetingId: data?.meeting.meetingId ?? meetingId ?? 0,
     isBookmarked,
+  });
+  useMeetingDetailDwellTime({
+    meetingId: meetingId ?? null,
+    enabled: Boolean(meetingId),
   });
 
   if (isLoading && !data) {

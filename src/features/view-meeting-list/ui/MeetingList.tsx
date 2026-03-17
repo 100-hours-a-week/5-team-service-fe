@@ -17,6 +17,7 @@ export const MeetingList = ({
     genreMap,
     sentinelRef,
     onClickMeeting,
+    onImpressionMeeting,
     showInitSkeleton,
     showNextSkeleton,
   } = useMeetings({ initialData });
@@ -40,7 +41,8 @@ export const MeetingList = ({
               key={meeting.meetingId}
               meeting={meeting}
               genreName={genreMap.get(meeting.readingGenreId)}
-              onClick={() => onClickMeeting(index)}
+              onClick={() => onClickMeeting(index, meeting.meetingId)}
+              onImpression={onImpressionMeeting}
             />
           ))}
 

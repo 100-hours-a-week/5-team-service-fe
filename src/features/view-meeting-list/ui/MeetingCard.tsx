@@ -60,7 +60,7 @@ function MeetingCardBase({ meeting, genreName, onClick }: MeetingCardProps) {
       href={`/meeting/detail/${meetingId}`}
       className="relative flex h-[330px] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md"
       aria-label={`${title} 모임 상세 보기`}
-      onClickCapture={onClick}
+      onClick={onClick}
     >
       <div className="relative">
         <MeetingCardImage meetingImagePath={meetingImagePath} title={title} />
