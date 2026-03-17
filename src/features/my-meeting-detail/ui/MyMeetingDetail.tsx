@@ -24,6 +24,9 @@ import MemberManagementTab from "./member-tab/MemberManagementTab";
 import KickMemberConfirmModal from "./member-tab/KickMemberConfirmModal";
 import LeaveLeaderDelegateModal from "./meeting-participation-tab/LeaveLeaderDelegateModal";
 import { GetMyMeetingDetailResponse } from "../api/get-my-meeting-detail/types";
+import resolveBookReportAction from "../model/resolveBookReportAction";
+import resolveReviewAction from "../model/resolveReviewAction";
+import { saveMeetingIdForReviewRoute } from "@/shared/lib/storage/reviewRouteContext";
 
 const LEAVE_ACTION_ERROR_MESSAGE = "요청 처리에 실패했어요. 잠시 후 다시 시도해 주세요.";
 
@@ -214,9 +217,42 @@ export default function MyMeetingDetail({ meetingId }: { meetingId: number }) {
               round={activeRound}
               isLeader={isLeader}
               onJoinMeeting={(meetingLink) => window.open(meetingLink, "_blank")}
-              onOpenBookReport={() =>
-                router.push(`/meeting-rounds/${activeRound.roundId}/book-report`)
-              }
+              onOpenBookReport={() => {
+                const bookReportAction = resolveBookReportAction(activeRound);
+                const bookReportId = activeRound.bookReport.id ?? null;
+
+                if (bookReportAction.action === "VIEW" && bookReportId) {
+                  router.push(
+                    `/meeting-rounds/${activeRound.roundId}/book-reports/${bookReportId}`,
+                  );
+                  return;
+                }
+
+                if (bookReportAction.action !== "WRITE") {
+                  return;
+                }
+
+                router.push(`/meeting-rounds/${activeRound.roundId}/book-report`);
+              }}
+              onOpenReview={() => {
+                const reviewId = activeRound.review?.id ?? null;
+                const reviewAction = resolveReviewAction(activeRound);
+
+                if (reviewAction.action === "VIEW" && reviewId) {
+                  router.push(`/my/reviews/${reviewId}`);
+                  return;
+                }
+
+                if (reviewAction.action !== "WRITE") {
+                  return;
+                }
+
+                saveMeetingIdForReviewRoute({
+                  roundId: activeRound.roundId,
+                  meetingId: meeting.meetingId,
+                });
+                router.push(`/meeting-rounds/${activeRound.roundId}/review`);
+              }}
             />
           ) : resolvedTab === "REPORT" ? (
             <div key={`${activeRound.roundNo}-reports`} className="animate-fade-in-up">
