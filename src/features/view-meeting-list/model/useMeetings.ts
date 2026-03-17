@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMeetingsInfiniteQuery } from "./useMeetingsInfiniteQuery";
 import { useReadingGenresQuery } from "@/entities/policy/api/useReadingGenresQuery";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -9,6 +9,10 @@ import {
 } from "../lib/meetingListRestore";
 import { useInView } from "react-intersection-observer";
 import type { MeetingListResponse } from "./types";
+import {
+  addMeetingDetailClickCount,
+  addMeetingImpressionCount,
+} from "@/features/behavior-log/model/behaviorLogStore";
 
 const ITEMS_PER_PAGE = 4;
 
@@ -52,11 +56,16 @@ export const useMeetings = ({
     fetchNextPage();
   }, [inView, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const onClickMeeting = (index: number) => {
+  const onClickMeeting = (index: number, meetingId: number) => {
+    addMeetingDetailClickCount(meetingId);
     const scroller = document.getElementById("app-scroll");
     const anchorY = scroller ? scroller.scrollTop : 0;
     saveMeetingListRestore({ clickedIndex: index, anchorY: anchorY, size: pageSize });
   };
+
+  const onImpressionMeeting = useCallback((meetingId: number) => {
+    addMeetingImpressionCount(meetingId);
+  }, []);
 
   const showInitSkeleton = isLoading && meetings.length === 0;
   const showNextSkeleton = isFetchingNextPage;
@@ -69,6 +78,7 @@ export const useMeetings = ({
     genreMap,
     sentinelRef,
     onClickMeeting,
+    onImpressionMeeting,
     showInitSkeleton,
     showNextSkeleton,
   };
