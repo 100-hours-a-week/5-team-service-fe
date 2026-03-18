@@ -408,6 +408,9 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -417,238 +420,96 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy to Prod via SSM
+      - name: Create production CodeDeploy revision bundle
         run: |
           set -euo pipefail
 
-          APP_INSTANCE_ID="i-0212b65a2dfba8335"
-          NGINX_INSTANCE_ID="i-0a4beef9dba096fc0"
-          APP_PRIVATE_DNS="ip-10-1-30-216.ap-northeast-2.compute.internal"
-          ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          ECR_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
-          IMAGE_TAG="${{ needs.build-and-push-arm64.outputs.image-tag }}"
-          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          PREV_ACTIVE_COLOR=""
-          TARGET_COLOR=""
-          FAILED_STAGE=""
-          AUTO_ROLLBACK="NOT_NEEDED"
+          mkdir -p codedeploy-bundle/scripts/deploy/frontend
 
-          print_deploy_status() {
-            local stage="$1"
-            local result="$2"
-            echo "배포상태 단계=$stage 결과=$result 이전활성색상=$PREV_ACTIVE_COLOR 대상색상=$TARGET_COLOR 이미지태그=$IMAGE_TAG 자동롤백=$AUTO_ROLLBACK"
-          }
+          cat > codedeploy-bundle/scripts/deploy/frontend/deploy.env <<EOF
+          AWS_REGION=ap-northeast-2
+          ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
+          ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY_PROD }}
+          IMAGE_TAG=${{ needs.build-and-push-arm64.outputs.image-tag }}
+          CONTAINER_NAME=doktori-frontend
+          HOST_PORT=3000
+          CONTAINER_PORT=3000
+          HEALTH_CHECK_PATH=/
+          TARGET_GROUP_ARN=${{ secrets.FRONTEND_PROD_TARGET_GROUP_ARN }}
+          EOF
 
-          send_and_wait() {
-            local instance_id="$1"
-            local comment="$2"
-            local commands_json="$3"
-            local timeout="${4:-600}"
+          cp appspec.yml codedeploy-bundle/appspec.yml
+          cp scripts/deploy/frontend/*.sh codedeploy-bundle/scripts/deploy/frontend/
+          cp scripts/deploy/frontend/deploy.env.example codedeploy-bundle/scripts/deploy/frontend/
 
-            local resp cmd_id target_count status
-            resp=$(aws ssm send-command \
-              --document-name "AWS-RunShellScript" \
-              --instance-ids "$instance_id" \
-              --parameters "{\"commands\": $commands_json}" \
-              --timeout-seconds "$timeout" \
-              --comment "$comment" \
-              --output json) || {
-                echo "::error::SSM 명령 전송 실패: $comment"
-                return 1
-              }
+          REVISION_BUNDLE="frontend-codedeploy-${GITHUB_SHA}.zip"
+          (
+            cd codedeploy-bundle
+            zip -r "../${REVISION_BUNDLE}" .
+          )
 
-            cmd_id=$(echo "$resp" | jq -r '.Command.CommandId')
-            target_count=$(echo "$resp" | jq -r '.Command.TargetCount // 0')
-            echo "SSM Command: $cmd_id (targets: $target_count)"
-            if [ "$target_count" -eq 0 ]; then
-              echo "::error::SSM 대상 인스턴스가 없습니다: $comment"
-              return 1
-            fi
+          echo "REVISION_BUNDLE=${REVISION_BUNDLE}" >> "$GITHUB_ENV"
 
-            for i in $(seq 1 60); do
-              sleep 5
-              status=$(aws ssm list-command-invocations \
-                --command-id "$cmd_id" \
-                --query "CommandInvocations[0].Status" \
-                --output text 2>/dev/null || echo "Pending")
-              if [ -z "$status" ] || [ "$status" = "None" ]; then
-                status="Pending"
-              fi
-              echo "[$i/60] $comment 상태: $status"
-              case "$status" in
-                Success)
-                  LAST_CMD_ID="$cmd_id"
-                  return 0
-                  ;;
-                Failed|Cancelled|TimedOut|DeliveryTimedOut)
-                  aws ssm list-command-invocations --command-id "$cmd_id" --details \
-                    --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
-                  return 1
-                  ;;
-              esac
-            done
+      - name: Upload CodeDeploy revision to S3
+        run: |
+          set -euo pipefail
 
-            echo "::error::SSM 명령 타임아웃: $comment"
-            return 1
-          }
+          aws s3 cp "$REVISION_BUNDLE" \
+            "s3://${{ secrets.CODEDEPLOY_REVISION_BUCKET_PROD }}/frontend/${REVISION_BUNDLE}"
 
-          rollback_on_failure() {
-            if [ -z "$PREV_ACTIVE_COLOR" ] || [ -z "$TARGET_COLOR" ]; then
-              echo "AUTO_ROLLBACK=SKIPPED (롤백 정보 부족)"
-              AUTO_ROLLBACK="SKIPPED"
-              return 0
-            fi
+      - name: Register CodeDeploy revision
+        run: |
+          set -euo pipefail
 
-            echo "롤백 시작: failed_stage=$FAILED_STAGE prev=$PREV_ACTIVE_COLOR target=$TARGET_COLOR"
+          aws deploy register-application-revision \
+            --application-name "${{ secrets.CODEDEPLOY_APPLICATION_NAME_PROD }}" \
+            --s3-location "bucket=${{ secrets.CODEDEPLOY_REVISION_BUCKET_PROD }},bundleType=zip,key=frontend/${REVISION_BUNDLE}"
 
-            local rb_ok=0
-            local rb_switch_commands rb_app_commands
+      - name: Create CodeDeploy deployment
+        run: |
+          set -euo pipefail
 
-            rb_switch_commands=$(jq -n \
-              --arg color "$PREV_ACTIVE_COLOR" \
-              --arg dns "$APP_PRIVATE_DNS" \
-              '[
-                "set -e",
-                ("TARGET_COLOR=" + $color),
-                ("APP_PRIVATE_DNS=" + $dns),
-                "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
-                "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
-                "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
-                "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
-                "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
-                "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
-                "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
-                "docker exec nginx nginx -t",
-                "docker exec nginx nginx -s reload",
-                "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
-              ]')
+          DEPLOYMENT_ID=$(
+            aws deploy create-deployment \
+              --application-name "${{ secrets.CODEDEPLOY_APPLICATION_NAME_PROD }}" \
+              --deployment-group-name "${{ secrets.CODEDEPLOY_DEPLOYMENT_GROUP_NAME_PROD }}" \
+              --revision "revisionType=S3,s3Location={bucket=${{ secrets.CODEDEPLOY_REVISION_BUCKET_PROD }},bundleType=zip,key=frontend/${REVISION_BUNDLE}}" \
+              --description "frontend prod deploy ${GITHUB_SHA}" \
+              --query 'deploymentId' \
+              --output text
+          )
 
-            rb_app_commands=$(jq -n \
-              --arg prev "$PREV_ACTIVE_COLOR" \
-              --arg target "$TARGET_COLOR" \
-              '[
-                "set -e",
-                ("echo " + $prev + " > /var/run/frontend-active-color"),
-                ("docker rm -f frontend-" + $target + " 2>/dev/null || true"),
-                "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
-              ]')
+          echo "DEPLOYMENT_ID=${DEPLOYMENT_ID}" >> "$GITHUB_ENV"
+          echo "CodeDeploy Deployment: ${DEPLOYMENT_ID}"
 
-            if send_and_wait "$NGINX_INSTANCE_ID" "롤백: nginx upstream 복구" "$rb_switch_commands" 300 \
-              && send_and_wait "$APP_INSTANCE_ID" "롤백: 앱 active 상태 복구" "$rb_app_commands" 300; then
-              rb_ok=1
-            fi
+      - name: Wait for CodeDeploy deployment
+        run: |
+          set -euo pipefail
 
-            if [ "$rb_ok" -eq 1 ]; then
-              AUTO_ROLLBACK="SUCCESS"
-              echo "AUTO_ROLLBACK=SUCCESS FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
-              print_deploy_status "롤백" "성공"
-              return 0
-            fi
+          for i in $(seq 1 120); do
+            STATUS=$(aws deploy get-deployment \
+              --deployment-id "$DEPLOYMENT_ID" \
+              --query 'deploymentInfo.status' \
+              --output text)
+            echo "[$i/120] CodeDeploy status: $STATUS"
 
-            AUTO_ROLLBACK="FAILED"
-            echo "::error::AUTO_ROLLBACK=FAILED FAILED_STAGE=$FAILED_STAGE PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
-            print_deploy_status "롤백" "실패"
-            return 1
-          }
+            case "$STATUS" in
+              Succeeded)
+                exit 0
+                ;;
+              Failed|Stopped)
+                aws deploy get-deployment \
+                  --deployment-id "$DEPLOYMENT_ID" \
+                  --output json
+                exit 1
+                ;;
+            esac
 
-          PRECHECK_COMMANDS=$(jq -n '[
-            "set -e",
-            "if [ -f /var/run/frontend-active-color ]; then tr -d \"[:space:]\" < /var/run/frontend-active-color; else echo blue; fi"
-          ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "사전 점검: active 색상 확인" "$PRECHECK_COMMANDS" 120; then
-            echo "::error::사전 점검 실패"
-            print_deploy_status "사전점검" "실패"
-            exit 1
-          fi
-          PREV_ACTIVE_COLOR=$(aws ssm get-command-invocation \
-            --command-id "$LAST_CMD_ID" \
-            --instance-id "$APP_INSTANCE_ID" \
-            --query "StandardOutputContent" \
-            --output text | tr -d '\r[:space:]')
-          if [ "$PREV_ACTIVE_COLOR" != "blue" ] && [ "$PREV_ACTIVE_COLOR" != "green" ]; then
-            PREV_ACTIVE_COLOR="blue"
-          fi
-          if [ "$PREV_ACTIVE_COLOR" = "blue" ]; then
-            TARGET_COLOR="green"
-          else
-            TARGET_COLOR="blue"
-          fi
-          echo "배포 대상 결정: PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR IMAGE_URI=$IMAGE_URI"
-          print_deploy_status "사전점검" "성공"
+            sleep 10
+          done
 
-          FAILED_STAGE="1단계_비활성색상배포"
-          STAGE1_COMMANDS=$(jq -n \
-            --arg image "$IMAGE_URI" \
-            --arg registry "$ECR_REGISTRY" \
-            '[
-              "set -e",
-              ("/usr/local/bin/deploy-frontend-bluegreen.sh --image-uri " + $image + " --registry " + $registry + " --health-path / --canary-seconds 60 --memory 512m")
-            ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "1단계: 프론트 비활성 색상 배포" "$STAGE1_COMMANDS" 600; then
-            echo "::error::1단계 실패(트래픽 전환 전). 롤백 불필요."
-            echo "AUTO_ROLLBACK=NOT_NEEDED FAILED_STAGE=$FAILED_STAGE"
-            print_deploy_status "1단계_비활성색상배포" "실패"
-            exit 1
-          fi
-          print_deploy_status "1단계_비활성색상배포" "성공"
-
-          FAILED_STAGE="2단계_nginx전환"
-          STAGE2_COMMANDS=$(jq -n \
-            --arg color "$TARGET_COLOR" \
-            --arg dns "$APP_PRIVATE_DNS" \
-            '[
-              "set -e",
-              ("TARGET_COLOR=" + $color),
-              ("APP_PRIVATE_DNS=" + $dns),
-              "case \"$TARGET_COLOR\" in blue) TARGET_PORT=3000 ;; green) TARGET_PORT=3001 ;; *) echo \"invalid TARGET_COLOR=$TARGET_COLOR\" >&2; exit 1 ;; esac",
-              "UPSTREAM_FILE=/etc/nginx/conf.d/upstream-frontend.conf",
-              "docker exec nginx sh -lc \"[ -f $UPSTREAM_FILE ]\"",
-              "TARGET_ENDPOINT=\"$APP_PRIVATE_DNS:$TARGET_PORT\"",
-              "BAK_FILE=/tmp/frontend-upstream.bak.$(date +%s)",
-              "docker exec nginx sh -lc \"cp $UPSTREAM_FILE $BAK_FILE\"",
-              "docker exec nginx sh -lc \"sed -i -E \\\"s|^[[:space:]]*server[[:space:]].*;|    server $TARGET_ENDPOINT;|\\\" $UPSTREAM_FILE\"",
-              "docker exec nginx nginx -t",
-              "docker exec nginx nginx -s reload",
-              "echo \"$TARGET_COLOR\" > /var/run/frontend-active-color"
-            ]')
-          if ! send_and_wait "$NGINX_INSTANCE_ID" "2단계: nginx upstream 전환" "$STAGE2_COMMANDS" 300; then
-            rollback_on_failure || true
-            print_deploy_status "2단계_nginx전환" "실패"
-            exit 1
-          fi
-          print_deploy_status "2단계_nginx전환" "성공"
-
-          FAILED_STAGE="3단계_이전색상정리"
-          STAGE3_COMMANDS=$(jq -n \
-            --arg old "$PREV_ACTIVE_COLOR" \
-            --arg new "$TARGET_COLOR" \
-            '[
-              "set -e",
-              ("OLD_COLOR=" + $old),
-              ("NEW_COLOR=" + $new),
-              "sleep 60",
-              "docker rm -f frontend-$OLD_COLOR 2>/dev/null || true",
-              "if [ \"$OLD_COLOR\" = \"blue\" ]; then docker rm -f frontend 2>/dev/null || true; fi",
-              "echo $NEW_COLOR > /var/run/frontend-active-color",
-              "echo active=$NEW_COLOR old_stopped=$OLD_COLOR",
-              "docker ps --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\""
-            ]')
-          if ! send_and_wait "$APP_INSTANCE_ID" "3단계: blue/green 대기 후 이전 색상 정리" "$STAGE3_COMMANDS" 420; then
-            rollback_on_failure || true
-            print_deploy_status "3단계_이전색상정리" "실패"
-            exit 1
-          fi
-          print_deploy_status "3단계_이전색상정리" "성공"
-
-          CLEANUP_COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" --arg repository "$ECR_REPOSITORY" '[
-            "set -e",
-            ("docker images " + $registry + "/" + $repository + " --format \"{{.Repository}}:{{.Tag}}\" | grep -E \":sha-.*-arm64$\" | awk \"NR>4 {print \\$1}\" | xargs -r docker rmi || true"),
-            "docker image prune -f || true"
-          ]')
-          send_and_wait "$APP_INSTANCE_ID" "부가 단계: 프론트 이미지 정리" "$CLEANUP_COMMANDS" 180 || true
-
-          echo "배포 완료: AUTO_ROLLBACK=$AUTO_ROLLBACK FAILED_STAGE=none PREV_ACTIVE_COLOR=$PREV_ACTIVE_COLOR TARGET_COLOR=$TARGET_COLOR"
-          print_deploy_status "최종" "성공"
+          echo "::error::CodeDeploy deployment timed out"
+          exit 1
 
       - name: Sync .next/static to S3
         env:
