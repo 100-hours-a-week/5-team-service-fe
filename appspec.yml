@@ -1,0 +1,42 @@
+version: 0.0
+os: linux
+
+files:
+  - source: scripts/deploy/frontend
+    destination: /home/ubuntu/deploy/frontend
+    overwrite: true
+
+permissions:
+  - object: /home/ubuntu/deploy/frontend
+    owner: ubuntu
+    group: ubuntu
+    mode: 755
+    type:
+      - directory
+  - object: /home/ubuntu/deploy/frontend
+    owner: ubuntu
+    group: ubuntu
+    mode: 755
+    type:
+      - file
+
+hooks:
+  BeforeInstall:
+    - location: scripts/deploy/frontend/before_install.sh
+      timeout: 180
+      runas: ubuntu
+  AfterInstall:
+    - location: scripts/deploy/frontend/pull_image.sh
+      timeout: 600
+      runas: ubuntu
+    - location: scripts/deploy/frontend/stop_container.sh
+      timeout: 180
+      runas: ubuntu
+  ApplicationStart:
+    - location: scripts/deploy/frontend/start_container.sh
+      timeout: 300
+      runas: ubuntu
+  ValidateService:
+    - location: scripts/deploy/frontend/validate_service.sh
+      timeout: 300
+      runas: ubuntu
