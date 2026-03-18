@@ -90,9 +90,17 @@ instance_id() {
     http://169.254.169.254/latest/meta-data/instance-id
 }
 
-target_health_state() {
+target_health_entries() {
+  aws elbv2 describe-target-health \
+    --region "$AWS_REGION" \
+    --target-group-arn "$TARGET_GROUP_ARN" \
+    --query 'TargetHealthDescriptions[].[Target.Id,Target.Port,TargetHealth.State,TargetHealth.Reason,TargetHealth.Description]' \
+    --output text 2>/dev/null || true
+}
+
+target_health_state_from_entries() {
   local instance_id_value="$1"
-  local entries
+  local entries="$2"
   local preferred_port=""
   local preferred_state=""
   local fallback_port=""
@@ -101,19 +109,11 @@ target_health_state() {
   local target_port=""
   local target_state=""
 
-  entries="$(
-    aws elbv2 describe-target-health \
-      --region "$AWS_REGION" \
-      --target-group-arn "$TARGET_GROUP_ARN" \
-      --query 'TargetHealthDescriptions[].[Target.Id,Target.Port,TargetHealth.State]' \
-      --output text 2>/dev/null || true
-  )"
-
   if [ -z "$entries" ]; then
     return 0
   fi
 
-  while IFS=$'\t' read -r target_id target_port target_state; do
+  while IFS=$'\t' read -r target_id target_port target_state _target_reason _target_description; do
     [ "$target_id" = "$instance_id_value" ] || continue
 
     if [ "$target_port" = "$HOST_PORT" ]; then
@@ -140,28 +140,20 @@ EOF
   fi
 }
 
-target_health_port() {
+target_health_port_from_entries() {
   local instance_id_value="$1"
-  local entries
+  local entries="$2"
   local preferred_port=""
   local fallback_port=""
   local target_id=""
   local target_port=""
   local target_state=""
 
-  entries="$(
-    aws elbv2 describe-target-health \
-      --region "$AWS_REGION" \
-      --target-group-arn "$TARGET_GROUP_ARN" \
-      --query 'TargetHealthDescriptions[].[Target.Id,Target.Port,TargetHealth.State]' \
-      --output text 2>/dev/null || true
-  )"
-
   if [ -z "$entries" ]; then
     return 0
   fi
 
-  while IFS=$'\t' read -r target_id target_port target_state; do
+  while IFS=$'\t' read -r target_id target_port target_state _target_reason _target_description; do
     [ "$target_id" = "$instance_id_value" ] || continue
 
     if [ "$target_port" = "$HOST_PORT" ]; then
@@ -184,6 +176,103 @@ EOF
   if [ -n "$fallback_port" ]; then
     printf '%s' "$fallback_port"
   fi
+}
+
+target_health_reason_from_entries() {
+  local instance_id_value="$1"
+  local entries="$2"
+  local preferred_reason=""
+  local fallback_reason=""
+  local target_id=""
+  local target_port=""
+  local target_state=""
+  local target_reason=""
+  local target_description=""
+
+  if [ -z "$entries" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r target_id target_port target_state target_reason target_description; do
+    [ "$target_id" = "$instance_id_value" ] || continue
+
+    if [ "$target_port" = "$HOST_PORT" ]; then
+      preferred_reason="$target_reason"
+      break
+    fi
+
+    if [ -z "$fallback_reason" ]; then
+      fallback_reason="$target_reason"
+    fi
+  done <<EOF
+$entries
+EOF
+
+  if [ -n "$preferred_reason" ]; then
+    printf '%s' "$preferred_reason"
+    return 0
+  fi
+
+  if [ -n "$fallback_reason" ]; then
+    printf '%s' "$fallback_reason"
+  fi
+}
+
+target_health_description_from_entries() {
+  local instance_id_value="$1"
+  local entries="$2"
+  local preferred_description=""
+  local fallback_description=""
+  local target_id=""
+  local target_port=""
+  local target_state=""
+  local target_reason=""
+  local target_description=""
+
+  if [ -z "$entries" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r target_id target_port target_state target_reason target_description; do
+    [ "$target_id" = "$instance_id_value" ] || continue
+
+    if [ "$target_port" = "$HOST_PORT" ]; then
+      preferred_description="$target_description"
+      break
+    fi
+
+    if [ -z "$fallback_description" ]; then
+      fallback_description="$target_description"
+    fi
+  done <<EOF
+$entries
+EOF
+
+  if [ -n "$preferred_description" ]; then
+    printf '%s' "$preferred_description"
+    return 0
+  fi
+
+  if [ -n "$fallback_description" ]; then
+    printf '%s' "$fallback_description"
+  fi
+}
+
+log_target_health_snapshot() {
+  local entries="$1"
+
+  if [ -z "$entries" ]; then
+    log "ALB target health snapshot: no target health entries returned for $TARGET_GROUP_ARN"
+    return 0
+  fi
+
+  log "ALB target health snapshot begin"
+  while IFS=$'\t' read -r target_id target_port target_state target_reason target_description; do
+    log "target id=$target_id port=$target_port state=$target_state reason=${target_reason:-none} description=${target_description:-none}"
+  done <<EOF
+$entries
+EOF
+  log "ALB target health snapshot end"
 }
 
 describe_target_health_state() {

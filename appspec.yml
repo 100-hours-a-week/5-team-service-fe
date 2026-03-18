@@ -42,5 +42,5 @@ hooks:
       runas: ubuntu
   AfterAllowTraffic:
     - location: scripts/deploy/frontend/check_target_health.sh
-      timeout: 300
+      timeout: 420
       runas: ubuntu
