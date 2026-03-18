@@ -2,14 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import FullScreenSpinner from "@/shared/ui/FullScreenSpinner";
 import { apiFetch } from "@/lib/api/apiFetch";
 import getMyMeetingDetail from "../api/get-my-meeting-detail";
 import getMeetingMembers from "../api/get-meeting-members";
 import delegateMeetingLeader from "../api/delegate-meeting-leader";
 import leaveMeeting from "../api/leave-meeting";
-import pokeBookReport from "../api/poke-book-report";
 import {
   BookReportSubmitStatus,
   JoinedMeetingMember,
@@ -30,20 +29,15 @@ import resolveReviewAction from "../model/resolveReviewAction";
 import { saveMeetingIdForReviewRoute } from "@/shared/lib/storage/reviewRouteContext";
 
 const LEAVE_ACTION_ERROR_MESSAGE = "요청 처리에 실패했어요. 잠시 후 다시 시도해 주세요.";
-const POKE_ERROR_MESSAGE = "콕 찌르기 알림을 보내지 못했어요.";
 
 export default function MyMeetingDetail({ meetingId }: { meetingId: number }) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [activeRoundNo, setActiveRoundNo] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"MEETING" | "REPORT" | "MEMBER">("MEETING");
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [delegateModalOpen, setDelegateModalOpen] = useState(false);
   const [delegateCandidates, setDelegateCandidates] = useState<JoinedMeetingMember[]>([]);
   const [leaveActionError, setLeaveActionError] = useState<string | null>(null);
-  const [pokingMemberIds, setPokingMemberIds] = useState<number[]>([]);
-  const [isPokingAll, setIsPokingAll] = useState(false);
-  const [pokeErrorMessage, setPokeErrorMessage] = useState<string | null>(null);
 
   const {
     data: meeting,
@@ -167,62 +161,6 @@ export default function MyMeetingDetail({ meetingId }: { meetingId: number }) {
     }
   };
 
-  const resolvePokeErrorMessage = (error: unknown, fallback: string) =>
-    (error as { message?: string })?.message ?? fallback;
-
-  const handlePokeBookReport = async (meetingMemberId: number) => {
-    setPokeErrorMessage(null);
-    setPokingMemberIds((prev) =>
-      prev.includes(meetingMemberId) ? prev : [...prev, meetingMemberId],
-    );
-
-    try {
-      await pokeBookReport({ roundId: activeRound.roundId, meetingMemberId });
-      await queryClient.invalidateQueries({ queryKey: ["roundBookReports", activeRound.roundId] });
-    } catch (error) {
-      setPokeErrorMessage(resolvePokeErrorMessage(error, POKE_ERROR_MESSAGE));
-    } finally {
-      setPokingMemberIds((prev) => prev.filter((id) => id !== meetingMemberId));
-    }
-  };
-
-  const handlePokeAllBookReports = async (meetingMemberIds: number[]) => {
-    if (meetingMemberIds.length === 0) return;
-
-    setPokeErrorMessage(null);
-    setIsPokingAll(true);
-    setPokingMemberIds((prev) => Array.from(new Set([...prev, ...meetingMemberIds])));
-
-    try {
-      const results = await Promise.allSettled(
-        meetingMemberIds.map((meetingMemberId) =>
-          pokeBookReport({ roundId: activeRound.roundId, meetingMemberId }),
-        ),
-      );
-      const rejectedCount = results.filter((result) => result.status === "rejected").length;
-
-      if (rejectedCount > 0) {
-        const rejectedResult = results.find(
-          (result): result is PromiseRejectedResult => result.status === "rejected",
-        );
-        setPokeErrorMessage(
-          rejectedCount === meetingMemberIds.length
-            ? resolvePokeErrorMessage(rejectedResult?.reason, POKE_ERROR_MESSAGE)
-            : `${rejectedCount}명에게 콕 찌르기 알림을 보내지 못했어요.`,
-        );
-      }
-
-      if (rejectedCount < meetingMemberIds.length) {
-        await queryClient.invalidateQueries({
-          queryKey: ["roundBookReports", activeRound.roundId],
-        });
-      }
-    } finally {
-      setPokingMemberIds((prev) => prev.filter((id) => !meetingMemberIds.includes(id)));
-      setIsPokingAll(false);
-    }
-  };
-
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="no-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -324,15 +262,9 @@ export default function MyMeetingDetail({ meetingId }: { meetingId: number }) {
                 isError={isReportError}
                 submitStatus={submitStatuByRound}
                 roundId={activeRound.roundId}
-                pokingMemberIds={pokingMemberIds}
-                isPokingAll={isPokingAll}
-                pokeErrorMessage={pokeErrorMessage}
                 onOpenDetail={(reportId, roundId) =>
                   router.push(`/meeting-rounds/${roundId}/book-reports/${reportId}`)
                 }
-                onPoke={(meetingMemberId) => handlePokeBookReport(meetingMemberId)}
-                onPokeAll={(meetingMemberIds) => handlePokeAllBookReports(meetingMemberIds)}
-                onClearPokeError={() => setPokeErrorMessage(null)}
               />
             </div>
           ) : (
