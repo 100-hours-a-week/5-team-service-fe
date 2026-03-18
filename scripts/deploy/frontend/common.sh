@@ -77,5 +77,15 @@ ecr_login() {
 }
 
 instance_id() {
-  curl -fsS http://169.254.169.254/latest/meta-data/instance-id
+  local token
+
+  token="$(
+    curl -fsS -X PUT \
+      -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" \
+      http://169.254.169.254/latest/api/token
+  )"
+
+  curl -fsS \
+    -H "X-aws-ec2-metadata-token: $token" \
+    http://169.254.169.254/latest/meta-data/instance-id
 }
