@@ -9,6 +9,12 @@ export type BookReportStatus =
 
 export type BookReportSubmitStatus = "IN_PROGRESS" | "NOT_YET" | "DEADLINE_PASSED";
 
+export type MeetingReviewStatus =
+  | "NOT_YET_WRITABLE"
+  | "NOT_SUBMITTED"
+  | "SUBMITTED"
+  | "DEADLINE_PASSED";
+
 export type MeetingRound = {
   roundId: number;
   roundNo: number;
@@ -26,17 +32,12 @@ export type MeetingRound = {
   bookReport: {
     status: null | "SUBMITTED" | "APPROVED" | "REJECTED";
     id: number | null;
-    writableUntil: string | null;
+  };
+  review?: {
+    status: MeetingReviewStatus;
+    id: number | null;
   };
   topics?: { topicNo: number; topic: string }[];
-  myProgressPercent?: number;
-  membersProgress?: { meetingMemberId: number; nickname: string; progressPercent: number }[];
-  bestMeetingMember?: {
-    nickname: string;
-    tierImagePath: string;
-    profileImagePath: string;
-  };
-  review?: { status: string; id: number | null; writableUntil: string | null };
 };
 
 export type RoundBookReportMember = {

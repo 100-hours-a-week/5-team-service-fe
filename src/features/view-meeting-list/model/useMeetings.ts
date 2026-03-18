@@ -1,16 +1,26 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMeetingsInfiniteQuery } from "./useMeetingsInfiniteQuery";
 import { useReadingGenresQuery } from "@/entities/policy/api/useReadingGenresQuery";
+import type { InfiniteData } from "@tanstack/react-query";
 import {
   clearMeetingListRestore,
   getMeetingListRestore,
   saveMeetingListRestore,
 } from "../lib/meetingListRestore";
 import { useInView } from "react-intersection-observer";
+import type { MeetingListResponse } from "./types";
+import {
+  addMeetingDetailClickCount,
+  addMeetingImpressionCount,
+} from "@/features/behavior-log/model/behaviorLogStore";
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 4;
 
-export const useMeetings = () => {
+export const useMeetings = ({
+  initialData,
+}: {
+  initialData?: InfiniteData<MeetingListResponse, number | undefined>;
+} = {}) => {
   const { genres } = useReadingGenresQuery();
   const genreMap = useMemo(() => new Map(genres?.map((genre) => [genre.id, genre.name])), [genres]);
 
@@ -18,8 +28,9 @@ export const useMeetings = () => {
   const pageSize = restore?.size ?? ITEMS_PER_PAGE;
   const [restoreCompleted, setRestoreCompleted] = useState(() => !restore);
 
+  const queryInitialData = restore ? undefined : initialData;
   const { meetings, isLoading, isError, fetchNextPage, isFetchingNextPage, hasNextPage } =
-    useMeetingsInfiniteQuery({ size: pageSize });
+    useMeetingsInfiniteQuery({ size: pageSize, initialData: queryInitialData });
 
   useEffect(() => {
     if (!restore || restoreCompleted || isLoading) return;
@@ -45,11 +56,16 @@ export const useMeetings = () => {
     fetchNextPage();
   }, [inView, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const onClickMeeting = (index: number) => {
+  const onClickMeeting = (index: number, meetingId: number) => {
+    addMeetingDetailClickCount(meetingId);
     const scroller = document.getElementById("app-scroll");
     const anchorY = scroller ? scroller.scrollTop : 0;
     saveMeetingListRestore({ clickedIndex: index, anchorY: anchorY, size: pageSize });
   };
+
+  const onImpressionMeeting = useCallback((meetingId: number) => {
+    addMeetingImpressionCount(meetingId);
+  }, []);
 
   const showInitSkeleton = isLoading && meetings.length === 0;
   const showNextSkeleton = isFetchingNextPage;
@@ -62,6 +78,7 @@ export const useMeetings = () => {
     genreMap,
     sentinelRef,
     onClickMeeting,
+    onImpressionMeeting,
     showInitSkeleton,
     showNextSkeleton,
   };

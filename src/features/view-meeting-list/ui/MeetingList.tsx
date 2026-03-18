@@ -1,19 +1,26 @@
 "use client";
 
-import { MeetingCard } from "./MeetingCard";
-import { Skeleton } from "./Skeleton";
+import type { InfiniteData } from "@tanstack/react-query";
+import { Skeleton } from "@/entities/meeting/ui/MeetingCardSkeleton";
+import { MeetingCard } from "@/entities/meeting/ui/MeetingCard";
+import type { MeetingListResponse } from "../model/types";
 import { useMeetings } from "../model/useMeetings";
 
-export const MeetingList = () => {
+export const MeetingList = ({
+  initialData,
+}: {
+  initialData?: InfiniteData<MeetingListResponse, number | undefined>;
+}) => {
   const {
     meetings,
     isError,
     genreMap,
     sentinelRef,
     onClickMeeting,
+    onImpressionMeeting,
     showInitSkeleton,
     showNextSkeleton,
-  } = useMeetings();
+  } = useMeetings({ initialData });
 
   return (
     <div className="px-6 my-10">
@@ -34,7 +41,8 @@ export const MeetingList = () => {
               key={meeting.meetingId}
               meeting={meeting}
               genreName={genreMap.get(meeting.readingGenreId)}
-              onClick={() => onClickMeeting(index)}
+              onClick={() => onClickMeeting(index, meeting.meetingId)}
+              onImpression={onImpressionMeeting}
             />
           ))}
 

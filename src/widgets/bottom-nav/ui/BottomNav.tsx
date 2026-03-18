@@ -64,7 +64,7 @@ export default function BottomNav() {
           </button>
         </div>
       ) : null}
-      <div className="grid h-full grid-cols-4 border-t border-t-1 border-gray-200">
+      <div className="grid h-full grid-cols-5 border-t border-t-1 border-gray-200">
         {bottomNavItems.map((item) => {
           const isActive = isPathActive({ pathname, href: item.href });
 
@@ -72,6 +72,11 @@ export default function BottomNav() {
             <Link
               key={item.label}
               href={item.href}
+              onClick={() => {
+                if (item.key === "bookmark" && typeof window !== "undefined") {
+                  sessionStorage.removeItem("bookmarkedMeetingList:restore");
+                }
+              }}
               className={`flex flex-col items-center justify-center gap-1 px-2 py-3 text-xs font-semibold ${
                 isActive ? "text-primary-purple" : "text-gray-400"
               }`}

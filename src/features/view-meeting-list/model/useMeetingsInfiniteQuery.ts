@@ -2,11 +2,15 @@
 
 import { InfiniteData, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { MeetingListResponse } from "./types";
-import { fetchMeetings } from "../api/fetchMeetings";
+
 import { getMeetingListRestore } from "../lib/meetingListRestore";
 import { useEffect, useMemo, useState } from "react";
+import getMeetingList from "../api/getMeetingList";
 
-export const useMeetingsInfiniteQuery = (params: { size: number }) => {
+export const useMeetingsInfiniteQuery = (params: {
+  size: number;
+  initialData?: InfiniteData<MeetingListResponse, number | undefined>;
+}) => {
   const queryClient = useQueryClient();
   const queryKey = useMemo(() => ["meetings", { size: params.size }] as const, [params.size]);
   const restore = useMemo(() => getMeetingListRestore(), []);
@@ -41,7 +45,7 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
 
       for (let i = 0; i < pagesToPrefetch; i++) {
         const pageParam = cursorId;
-        const response = await fetchMeetings({ size: params.size, cursorId: pageParam });
+        const response = await getMeetingList({ size: params.size, cursorId: pageParam });
         pages.push(response);
         pageParams.push(pageParam);
 
@@ -70,7 +74,8 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
       number | undefined
     >({
       queryKey: queryKey,
-      queryFn: ({ pageParam }) => fetchMeetings({ size: params.size, cursorId: pageParam }),
+      queryFn: ({ pageParam }) => getMeetingList({ size: params.size, cursorId: pageParam }),
+      initialData: params.initialData,
       initialPageParam: undefined,
       getNextPageParam: (lastPage) =>
         lastPage.pageInfo.hasNext ? lastPage.pageInfo.nextCursorId : undefined,
@@ -85,10 +90,14 @@ export const useMeetingsInfiniteQuery = (params: { size: number }) => {
   const meetings = useMemo(() => {
     const meetingsList =
       data?.pages.flatMap((page) =>
-        page.items.map((item) => ({
-          ...item,
-          readingGenreId: Number(item.readingGenreId),
-        })),
+        page.items.map((item) =>
+          typeof item.readingGenreId === "number"
+            ? item
+            : {
+                ...item,
+                readingGenreId: Number(item.readingGenreId),
+              },
+        ),
       ) ?? [];
 
     const unique = new Map<number, (typeof meetingsList)[number]>();

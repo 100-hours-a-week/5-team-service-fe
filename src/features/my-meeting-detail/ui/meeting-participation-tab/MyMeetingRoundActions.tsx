@@ -1,6 +1,7 @@
 import type { MeetingRound } from "../../api/types";
 import MeetingParticipation from "./MeetingParticipation";
 import BookReportSubmit from "./BookReportSubmit";
+import ReviewWriteAction from "./ReviewWriteAction";
 import RecommendMeetingTopicSection from "@/features/recommend-meeting-topic/ui/RecommendMeetingTopicSection";
 
 type MyMeetingRoundActionsProps = {
@@ -9,6 +10,7 @@ type MyMeetingRoundActionsProps = {
   isLeader: boolean;
   onJoinMeeting: (meetingLink: string) => void;
   onOpenBookReport: () => void;
+  onOpenReview: () => void;
 };
 
 export default function MyMeetingRoundActions({
@@ -17,10 +19,12 @@ export default function MyMeetingRoundActions({
   isLeader,
   onJoinMeeting,
   onOpenBookReport,
+  onOpenReview,
 }: MyMeetingRoundActionsProps) {
   return (
     <section key={`${round.roundNo}-meeting`} className="space-y-10 animate-fade-in-up">
       <MeetingParticipation round={round} onJoin={onJoinMeeting} />
+      <ReviewWriteAction round={round} onOpenReview={onOpenReview} />
       <BookReportSubmit round={round} onOpenBookReport={onOpenBookReport} />
       {isLeader ? (
         <RecommendMeetingTopicSection

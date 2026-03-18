@@ -46,13 +46,3 @@ export const reportStatusClass: Record<ReportStatus, string> = {
   APPROVED: "bg-green-100 text-green-600",
   REJECTED: "bg-red-100 text-red-600",
 };
-
-export const reportActionLabel: Record<ReportStatus, string> = {
-  NOT_YET_WRITABLE: "아직 독후감 제출 기한이 아닙니다.",
-  NOT_SUBMITTED: "독후감 제출하기",
-  PENDING_REVIEW: "독후감 검증 중",
-  DEADLINE_PASSED: "독후감 제출 기한이 지났습니다.",
-  SUBMITTED: "독후감 확인하기",
-  APPROVED: "독후감 확인하기",
-  REJECTED: "독후감 반려 사유 확인하기",
-};
