@@ -89,3 +89,14 @@ instance_id() {
     -H "X-aws-ec2-metadata-token: $token" \
     http://169.254.169.254/latest/meta-data/instance-id
 }
+
+target_health_state() {
+  local instance_id_value="$1"
+
+  aws elbv2 describe-target-health \
+    --region "$AWS_REGION" \
+    --target-group-arn "$TARGET_GROUP_ARN" \
+    --targets "Id=$instance_id_value,Port=$HOST_PORT" \
+    --query 'TargetHealthDescriptions[0].TargetHealth.State' \
+    --output text 2>/dev/null || true
+}
