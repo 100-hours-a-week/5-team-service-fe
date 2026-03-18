@@ -115,7 +115,7 @@ export default function BookReportPokeModal({
         )}
 
         {errorMessage ? (
-          <p className="mt-4 text-center text-sm text-red-500">{errorMessage}</p>
+          <p className="mt-4 text-center text-label !font-[500] text-red-500">{errorMessage}</p>
         ) : null}
 
         <button
