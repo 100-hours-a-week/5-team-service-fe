@@ -14,6 +14,7 @@ INSTANCE_ID="$(instance_id)"
 attempt=1
 while [ "$attempt" -le "$ALB_HEALTH_MAX_ATTEMPTS" ]; do
   TARGET_STATE="$(target_health_state "$INSTANCE_ID")"
+  TARGET_STATE_MESSAGE="$(describe_target_health_state "$TARGET_STATE")"
 
   if [ "$TARGET_STATE" = "healthy" ]; then
     log "ALB target health is healthy for instance $INSTANCE_ID on port $HOST_PORT"
@@ -21,10 +22,10 @@ while [ "$attempt" -le "$ALB_HEALTH_MAX_ATTEMPTS" ]; do
   fi
 
   if [ "$attempt" -eq "$ALB_HEALTH_MAX_ATTEMPTS" ]; then
-    fail "ALB target health did not become healthy. last state: ${TARGET_STATE:-unknown}"
+    fail "ALB target health did not become healthy within $((ALB_HEALTH_MAX_ATTEMPTS * ALB_HEALTH_SLEEP_SECONDS)) seconds. last state: $TARGET_STATE_MESSAGE"
   fi
 
-  log "waiting for ALB target health (${attempt}/${ALB_HEALTH_MAX_ATTEMPTS}), current state: ${TARGET_STATE:-unknown}"
+  log "waiting for ALB target health (${attempt}/${ALB_HEALTH_MAX_ATTEMPTS}), current state: $TARGET_STATE_MESSAGE"
   sleep "$ALB_HEALTH_SLEEP_SECONDS"
   attempt=$((attempt + 1))
 done
