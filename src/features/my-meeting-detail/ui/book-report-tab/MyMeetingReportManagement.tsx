@@ -4,6 +4,7 @@ import type { RoundBookReportListResponse } from "../../api/types";
 import { formatKoreanMonthDayHourMinute } from "@/shared/lib/formatKoreanMonthDayHourMinute";
 import { memberReportStatusClass, memberReportStatusLabel, ReportStatus } from "../../model/types";
 import BookReportPokeModal from "./BookReportPokeModal";
+import usePokeMember from "../../model/usePokeMember";
 
 type MyMeetingReportManagementProps = {
   reportSummary: RoundBookReportListResponse | null;
@@ -11,12 +12,6 @@ type MyMeetingReportManagementProps = {
   isError: boolean;
   submitStatus: "IN_PROGRESS" | "NOT_YET" | "DEADLINE_PASSED";
   onOpenDetail: (reportId: number, roundId: number) => void;
-  onPoke: (meetingMemberId: number) => void | Promise<void>;
-  onPokeAll: (meetingMemberIds: number[]) => void | Promise<void>;
-  onClearPokeError: () => void;
-  pokingMemberIds: number[];
-  isPokingAll: boolean;
-  pokeErrorMessage: string | null;
   roundId: number;
 };
 
@@ -26,17 +21,19 @@ export default function MyMeetingReportManagement({
   isError,
   submitStatus,
   onOpenDetail,
-  onPoke,
-  onPokeAll,
-  onClearPokeError,
-  pokingMemberIds,
-  isPokingAll,
-  pokeErrorMessage,
   roundId,
 }: MyMeetingReportManagementProps) {
   const [isPokeModalOpen, setIsPokeModalOpen] = useState(false);
   const [isPokeModalClosing, setIsPokeModalClosing] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
+  const {
+    pokeMember,
+    pokeAllMembers,
+    pokingMemberIds,
+    isPokingAll,
+    pokeErrorMessage,
+    clearPokeError,
+  } = usePokeMember(roundId);
 
   useEffect(() => {
     return () => {
@@ -84,13 +81,13 @@ export default function MyMeetingReportManagement({
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
-    onClearPokeError();
+    clearPokeError();
     setIsPokeModalClosing(false);
     setIsPokeModalOpen(true);
   };
 
   const handleClosePokeModal = () => {
-    onClearPokeError();
+    clearPokeError();
     setIsPokeModalClosing(true);
     if (closeTimerRef.current != null) {
       window.clearTimeout(closeTimerRef.current);
@@ -234,8 +231,8 @@ export default function MyMeetingReportManagement({
         isPokingAll={isPokingAll}
         errorMessage={pokeErrorMessage}
         onClose={handleClosePokeModal}
-        onPoke={onPoke}
-        onPokeAll={onPokeAll}
+        onPoke={pokeMember}
+        onPokeAll={pokeAllMembers}
       />
     </div>
   );

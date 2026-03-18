@@ -14,8 +14,8 @@ type BookReportPokeModalProps = {
   isPokingAll: boolean;
   errorMessage: string | null;
   onClose: () => void;
-  onPoke: (meetingMemberId: number) => void | Promise<void>;
-  onPokeAll: (meetingMemberIds: number[]) => void | Promise<void>;
+  onPoke: (meetingMemberId: number) => boolean | Promise<boolean>;
+  onPokeAll: (meetingMemberIds: number[]) => number[] | Promise<number[]>;
 };
 
 export default function BookReportPokeModal({
@@ -91,9 +91,11 @@ export default function BookReportPokeModal({
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      startAnimation([member.meetingMemberId]);
-                      void onPoke(member.meetingMemberId);
+                    onClick={async () => {
+                      const shouldAnimate = await onPoke(member.meetingMemberId);
+                      if (shouldAnimate) {
+                        startAnimation([member.meetingMemberId]);
+                      }
                     }}
                     disabled={isPoking || isPokingAll}
                     className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-primary/15 bg-primary-purple-3 text-primary transition hover:-translate-y-0.5 hover:bg-primary-purple-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -120,9 +122,13 @@ export default function BookReportPokeModal({
 
         <button
           type="button"
-          onClick={() => {
-            startAnimation(members.map((member) => member.meetingMemberId));
-            void onPokeAll(members.map((member) => member.meetingMemberId));
+          onClick={async () => {
+            const acceptedMemberIds = await onPokeAll(
+              members.map((member) => member.meetingMemberId),
+            );
+            if (acceptedMemberIds.length > 0) {
+              startAnimation(acceptedMemberIds);
+            }
           }}
           disabled={!hasMembers || isPokingAll}
           className="mt-6 w-full rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-gray-300"
