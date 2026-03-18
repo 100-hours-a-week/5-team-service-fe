@@ -92,13 +92,98 @@ instance_id() {
 
 target_health_state() {
   local instance_id_value="$1"
+  local entries
+  local preferred_port=""
+  local preferred_state=""
+  local fallback_port=""
+  local fallback_state=""
+  local target_id=""
+  local target_port=""
+  local target_state=""
 
-  aws elbv2 describe-target-health \
-    --region "$AWS_REGION" \
-    --target-group-arn "$TARGET_GROUP_ARN" \
-    --targets "Id=$instance_id_value,Port=$HOST_PORT" \
-    --query 'TargetHealthDescriptions[0].TargetHealth.State' \
-    --output text 2>/dev/null || true
+  entries="$(
+    aws elbv2 describe-target-health \
+      --region "$AWS_REGION" \
+      --target-group-arn "$TARGET_GROUP_ARN" \
+      --query 'TargetHealthDescriptions[].[Target.Id,Target.Port,TargetHealth.State]' \
+      --output text 2>/dev/null || true
+  )"
+
+  if [ -z "$entries" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r target_id target_port target_state; do
+    [ "$target_id" = "$instance_id_value" ] || continue
+
+    if [ "$target_port" = "$HOST_PORT" ]; then
+      preferred_port="$target_port"
+      preferred_state="$target_state"
+      break
+    fi
+
+    if [ -z "$fallback_port" ]; then
+      fallback_port="$target_port"
+      fallback_state="$target_state"
+    fi
+  done <<EOF
+$entries
+EOF
+
+  if [ -n "$preferred_state" ]; then
+    printf '%s' "$preferred_state"
+    return 0
+  fi
+
+  if [ -n "$fallback_state" ]; then
+    printf '%s' "$fallback_state"
+  fi
+}
+
+target_health_port() {
+  local instance_id_value="$1"
+  local entries
+  local preferred_port=""
+  local fallback_port=""
+  local target_id=""
+  local target_port=""
+  local target_state=""
+
+  entries="$(
+    aws elbv2 describe-target-health \
+      --region "$AWS_REGION" \
+      --target-group-arn "$TARGET_GROUP_ARN" \
+      --query 'TargetHealthDescriptions[].[Target.Id,Target.Port,TargetHealth.State]' \
+      --output text 2>/dev/null || true
+  )"
+
+  if [ -z "$entries" ]; then
+    return 0
+  fi
+
+  while IFS=$'\t' read -r target_id target_port target_state; do
+    [ "$target_id" = "$instance_id_value" ] || continue
+
+    if [ "$target_port" = "$HOST_PORT" ]; then
+      preferred_port="$target_port"
+      break
+    fi
+
+    if [ -z "$fallback_port" ]; then
+      fallback_port="$target_port"
+    fi
+  done <<EOF
+$entries
+EOF
+
+  if [ -n "$preferred_port" ]; then
+    printf '%s' "$preferred_port"
+    return 0
+  fi
+
+  if [ -n "$fallback_port" ]; then
+    printf '%s' "$fallback_port"
+  fi
 }
 
 describe_target_health_state() {
