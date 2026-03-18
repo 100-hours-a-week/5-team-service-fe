@@ -39,7 +39,7 @@ load_deploy_env() {
   CONTAINER_PORT="${CONTAINER_PORT:-3000}"
   HEALTH_CHECK_PATH="${HEALTH_CHECK_PATH:-/}"
   HEALTH_CHECK_TIMEOUT="${HEALTH_CHECK_TIMEOUT:-5}"
-  ALB_HEALTH_MAX_ATTEMPTS="${ALB_HEALTH_MAX_ATTEMPTS:-24}"
+  ALB_HEALTH_MAX_ATTEMPTS="${ALB_HEALTH_MAX_ATTEMPTS:-60}"
   ALB_HEALTH_SLEEP_SECONDS="${ALB_HEALTH_SLEEP_SECONDS:-5}"
   LOCAL_HEALTH_MAX_ATTEMPTS="${LOCAL_HEALTH_MAX_ATTEMPTS:-30}"
   LOCAL_HEALTH_SLEEP_SECONDS="${LOCAL_HEALTH_SLEEP_SECONDS:-2}"
@@ -99,4 +99,23 @@ target_health_state() {
     --targets "Id=$instance_id_value,Port=$HOST_PORT" \
     --query 'TargetHealthDescriptions[0].TargetHealth.State' \
     --output text 2>/dev/null || true
+}
+
+describe_target_health_state() {
+  local target_state="${1:-}"
+
+  case "$target_state" in
+    healthy)
+      printf 'healthy'
+      ;;
+    "")
+      printf 'target not registered yet'
+      ;;
+    None|none|null|unknown)
+      printf 'target not registered yet'
+      ;;
+    *)
+      printf '%s' "$target_state"
+      ;;
+  esac
 }
