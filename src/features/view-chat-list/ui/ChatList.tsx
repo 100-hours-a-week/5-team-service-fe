@@ -6,12 +6,16 @@ import ChatCard from "./ChatCard";
 import { Skeleton } from "./Skeleton";
 import { apiFetch } from "@/lib/api/apiFetch";
 import type { ChatLobbyInfo } from "@/features/chat-lobby/model/types";
+import ChatEnterModal from "./ChatEnterModal";
 
 type JoinPosition = "AGREE" | "DISAGREE";
 type JoinStep = "NONE" | "POSITION" | "QUIZ";
 type ChatQuiz = {
   question: string;
   choices: { choiceNumber: number; choiceText: string }[];
+  agreeCount: number;
+  disagreeCount: number;
+  maxPerPosition: number;
 };
 
 const MODAL_EXIT_MS = 220;
@@ -43,7 +47,7 @@ export default function ChatList() {
     };
   }, []);
 
-  const openJoinFlow = (index: number, roomId: number) => {
+  const openJoinFlow = async (index: number, roomId: number) => {
     if (closeTimerRef.current) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
@@ -56,6 +60,18 @@ export default function ChatList() {
     setJoinErrorMessage(null);
     setClosingStep("NONE");
     setJoinStep("POSITION");
+    setIsLoadingQuiz(true);
+
+    try {
+      const nextQuiz = await apiFetch<ChatQuiz>(`/chat-rooms/${roomId}/quiz`, {
+        method: "GET",
+      });
+      setQuiz(nextQuiz);
+    } catch (error) {
+      setJoinErrorMessage((error as { message?: string })?.message ?? "퀴즈를 불러오지 못했어요.");
+    } finally {
+      setIsLoadingQuiz(false);
+    }
   };
 
   const closeJoinFlow = () => {
@@ -76,22 +92,16 @@ export default function ChatList() {
   };
 
   const goToQuiz = async () => {
-    if (!pendingJoin || !selectedPosition || isLoadingQuiz) return;
-    setIsLoadingQuiz(true);
-    setJoinErrorMessage(null);
+    if (!pendingJoin || !selectedPosition || isLoadingQuiz || !quiz) return;
 
-    try {
-      const nextQuiz = await apiFetch<ChatQuiz>(`/chat-rooms/${pendingJoin.roomId}/quiz`, {
-        method: "GET",
-      });
-      setQuiz(nextQuiz);
-      setSelectedChoiceNumber(null);
-      setJoinStep("QUIZ");
-    } catch (error) {
-      setJoinErrorMessage((error as { message?: string })?.message ?? "퀴즈를 불러오지 못했어요.");
-    } finally {
-      setIsLoadingQuiz(false);
-    }
+    const agreeRemain = quiz.maxPerPosition - quiz.agreeCount;
+    const disagreeRemain = quiz.maxPerPosition - quiz.disagreeCount;
+    if (selectedPosition === "AGREE" && agreeRemain <= 0) return;
+    if (selectedPosition === "DISAGREE" && disagreeRemain <= 0) return;
+
+    setJoinErrorMessage(null);
+    setSelectedChoiceNumber(null);
+    setJoinStep("QUIZ");
   };
 
   const moveToLobby = async () => {
@@ -125,6 +135,11 @@ export default function ChatList() {
       setIsEnteringLobby(false);
     }
   };
+
+  const agreeRemain = quiz ? Math.max(0, quiz.maxPerPosition - quiz.agreeCount) : null;
+  const disagreeRemain = quiz ? Math.max(0, quiz.maxPerPosition - quiz.disagreeCount) : null;
+  const isAgreeFull = agreeRemain !== null && agreeRemain <= 0;
+  const isDisagreeFull = disagreeRemain !== null && disagreeRemain <= 0;
 
   return (
     <div className="relative mt-3 flex min-h-0 flex-1 flex-col gap-4 px-4 pb-8">
@@ -173,117 +188,37 @@ export default function ChatList() {
 
       <div ref={sentinelRef} />
 
-      {isModalOpen ? (
-        <div
-          className={`fixed bottom-16 left-1/2 top-0 z-40 flex w-full max-w-[500px] -translate-x-1/2 items-end justify-center bg-black/30 p-4 ${
-            isModalClosing ? "animate-fade-out" : "animate-fade-in"
-          }`}
-        >
-          {currentModalStep === "POSITION" ? (
-            <div
-              className={`w-full rounded-2xl bg-white p-5 ${
-                isModalClosing ? "animate-sheet-down" : "animate-sheet-up"
-              }`}
-            >
-              <p className="text-base font-semibold text-gray-900">입장 포지션을 선택해주세요</p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedPosition("AGREE")}
-                  className={`h-11 rounded-xl border text-sm font-semibold ${
-                    selectedPosition === "AGREE"
-                      ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-300 text-gray-700"
-                  }`}
-                >
-                  찬성
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPosition("DISAGREE")}
-                  className={`h-11 rounded-xl border text-sm font-semibold ${
-                    selectedPosition === "DISAGREE"
-                      ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-300 text-gray-700"
-                  }`}
-                >
-                  반대
-                </button>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={closeJoinFlow}
-                  disabled={isEnteringLobby}
-                  className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700"
-                >
-                  취소
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedPosition || isLoadingQuiz}
-                  onClick={() => void goToQuiz()}
-                  className="h-11 rounded-xl bg-primary-purple text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {isLoadingQuiz ? "불러오는 중..." : "다음"}
-                </button>
-              </div>
-              {joinErrorMessage ? (
-                <p className="mt-3 text-sm text-red-500">{joinErrorMessage}</p>
-              ) : null}
-            </div>
-          ) : null}
-
-          {currentModalStep === "QUIZ" ? (
-            <div
-              className={`w-full rounded-2xl bg-white p-5 ${
-                isModalClosing ? "animate-sheet-down" : "animate-sheet-up"
-              }`}
-            >
-              <p className="text-base font-semibold text-gray-900">
-                {quiz?.question ?? "입장 퀴즈를 불러오지 못했어요."}
-              </p>
-              <div className="mt-4 space-y-2">
-                {(quiz?.choices ?? []).map((choice) => (
-                  <button
-                    key={choice.choiceNumber}
-                    type="button"
-                    onClick={() => setSelectedChoiceNumber(choice.choiceNumber)}
-                    className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
-                      selectedChoiceNumber === choice.choiceNumber
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-300 text-gray-700"
-                    }`}
-                  >
-                    {choice.choiceNumber}. {choice.choiceText}
-                  </button>
-                ))}
-              </div>
-              {joinErrorMessage ? (
-                <p className="mt-3 text-sm text-red-500">{joinErrorMessage}</p>
-              ) : null}
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setJoinStep("POSITION")}
-                  disabled={isEnteringLobby}
-                  className="h-11 rounded-xl border border-gray-300 text-sm font-semibold text-gray-700"
-                >
-                  이전
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedChoiceNumber || isEnteringLobby || !quiz}
-                  onClick={() => void moveToLobby()}
-                  className="h-11 rounded-xl bg-primary-purple text-sm font-semibold text-white disabled:opacity-50"
-                >
-                  {isEnteringLobby ? "입장 중..." : "완료"}
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      <ChatEnterModal
+        isOpen={isModalOpen}
+        isClosing={isModalClosing}
+        currentStep={currentModalStep as "POSITION" | "QUIZ"}
+        selectedPosition={selectedPosition}
+        selectedChoiceNumber={selectedChoiceNumber}
+        isAgreeFull={isAgreeFull}
+        isDisagreeFull={isDisagreeFull}
+        agreeRemain={agreeRemain}
+        disagreeRemain={disagreeRemain}
+        agreeCount={quiz?.agreeCount ?? null}
+        disagreeCount={quiz?.disagreeCount ?? null}
+        maxPerPosition={quiz?.maxPerPosition ?? null}
+        isLoadingQuiz={isLoadingQuiz}
+        isEnteringLobby={isEnteringLobby}
+        canGoNext={
+          !!selectedPosition &&
+          !isLoadingQuiz &&
+          !!quiz &&
+          !(selectedPosition === "AGREE" && isAgreeFull) &&
+          !(selectedPosition === "DISAGREE" && isDisagreeFull)
+        }
+        joinErrorMessage={joinErrorMessage}
+        quiz={quiz}
+        onClose={closeJoinFlow}
+        onSelectPosition={setSelectedPosition}
+        onNext={() => void goToQuiz()}
+        onSelectChoice={setSelectedChoiceNumber}
+        onPrev={() => setJoinStep("POSITION")}
+        onComplete={() => void moveToLobby()}
+      />
     </div>
   );
 }
