@@ -4,19 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import useChats from "../model/useChats";
 import ChatCard from "./ChatCard";
 import { Skeleton } from "./Skeleton";
-import { apiFetch } from "@/lib/api/apiFetch";
-import type { ChatLobbyInfo } from "@/features/chat-lobby/model/types";
 import ChatEnterModal from "./ChatEnterModal";
+import getChatRoomQuiz from "../api/getChatRoomQuiz";
+import participateChatRoom from "../api/participateChatRoom";
+import type { GetChatRoomQuizResponse } from "../model/types";
 
 type JoinPosition = "AGREE" | "DISAGREE";
 type JoinStep = "NONE" | "POSITION" | "QUIZ";
-type ChatQuiz = {
-  question: string;
-  choices: { choiceNumber: number; choiceText: string }[];
-  agreeCount: number;
-  disagreeCount: number;
-  maxPerPosition: number;
-};
 
 const MODAL_EXIT_MS = 220;
 
@@ -30,7 +24,7 @@ export default function ChatList() {
   const [selectedChoiceNumber, setSelectedChoiceNumber] = useState<number | null>(null);
   const [isEnteringLobby, setIsEnteringLobby] = useState(false);
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
-  const [quiz, setQuiz] = useState<ChatQuiz | null>(null);
+  const [quiz, setQuiz] = useState<GetChatRoomQuizResponse | null>(null);
   const [joinErrorMessage, setJoinErrorMessage] = useState<string | null>(null);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -63,9 +57,7 @@ export default function ChatList() {
     setIsLoadingQuiz(true);
 
     try {
-      const nextQuiz = await apiFetch<ChatQuiz>(`/chat-rooms/${roomId}/quiz`, {
-        method: "GET",
-      });
+      const nextQuiz = await getChatRoomQuiz({ roomId });
       setQuiz(nextQuiz);
     } catch (error) {
       setJoinErrorMessage((error as { message?: string })?.message ?? "퀴즈를 불러오지 못했어요.");
@@ -111,12 +103,10 @@ export default function ChatList() {
 
     try {
       const roomId = pendingJoin.roomId;
-      const lobbyInfo = await apiFetch<ChatLobbyInfo>(`/chat-rooms/${roomId}/members`, {
-        method: "POST",
-        body: JSON.stringify({
-          position: selectedPosition,
-          quizAnswer: selectedChoiceNumber,
-        }),
+      const lobbyInfo = await participateChatRoom({
+        roomId,
+        position: selectedPosition,
+        quizAnswer: selectedChoiceNumber,
       });
 
       sessionStorage.setItem(`chatLobby:bootstrap:${roomId}`, JSON.stringify(lobbyInfo));
