@@ -8,6 +8,8 @@ type MeetingIntroSectionProps = {
   description: string;
   leaderNickname: string;
   leaderIntro: string;
+  leaderRating: number;
+  leaderMeetingCount: number;
   leaderProfileImagePath: string;
   reviewSection?: ReactNode;
 };
@@ -18,6 +20,8 @@ export default function MeetingIntroSection({
   description,
   leaderNickname,
   leaderIntro,
+  leaderRating,
+  leaderMeetingCount,
   leaderProfileImagePath,
   reviewSection,
 }: MeetingIntroSectionProps) {
@@ -64,11 +68,11 @@ export default function MeetingIntroSection({
             <div className="space-y-1 text-gray-900">
               <p className="flex items-center gap-2 text-label !font-[500]">
                 <HandThumbUpIcon className="h-5 w-5 text-gray-700" />
-                모임장 경력 3회
+                모임장 경력 {leaderMeetingCount}회
               </p>
               <p className="flex items-center gap-2 text-label !font-[500]">
                 <StarIcon className="h-5 w-5 text-gray-700" />
-                별점 평균 4.7
+                별점 평균 {leaderRating}
               </p>
             </div>
           </div>
