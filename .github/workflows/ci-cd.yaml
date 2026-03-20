@@ -533,7 +533,9 @@ jobs:
           mkdir -p /tmp/frontend-static
           docker cp "$CONTAINER_ID:/app/.next/static" /tmp/frontend-static/static
 
-          aws s3 sync /tmp/frontend-static/static/ "s3://${STATIC_BUCKET_NAME}/_next/static/" --delete
+          # Keep older build assets available so mixed-version traffic during rolling deploys
+          # does not lose chunks that are still referenced by already-rendered HTML.
+          aws s3 sync /tmp/frontend-static/static/ "s3://${STATIC_BUCKET_NAME}/_next/static/"
 
       - name: Create CloudFront invalidation
         env:
