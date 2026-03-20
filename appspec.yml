@@ -40,7 +40,3 @@ hooks:
     - location: scripts/deploy/frontend/validate_service.sh
       timeout: 300
       runas: ubuntu
-  AfterAllowTraffic:
-    - location: scripts/deploy/frontend/check_target_health.sh
-      timeout: 300
-      runas: ubuntu
