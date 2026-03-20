@@ -56,7 +56,11 @@ function logShutdownEvent(event: string, extra: Record<string, unknown> = {}) {
 function markInflightZeroIfNeeded() {
   const state = getState();
 
-  if (state.drainStartedAt === null || state.inflightZeroAt !== null || getInflightRequests() !== 0) {
+  if (
+    state.drainStartedAt === null ||
+    state.inflightZeroAt !== null ||
+    getInflightRequests() !== 0
+  ) {
     return;
   }
 
@@ -126,8 +130,7 @@ function registerExitLogging() {
     logShutdownEvent("shutdown_completed", {
       remaining_inflight_before_exit: getInflightRequests(),
       shutdown_completed: new Date(completedAt).toISOString(),
-      drain_duration_ms:
-        state.drainStartedAt === null ? null : completedAt - state.drainStartedAt,
+      drain_duration_ms: state.drainStartedAt === null ? null : completedAt - state.drainStartedAt,
     });
   });
 }
