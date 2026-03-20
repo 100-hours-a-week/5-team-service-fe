@@ -1,8 +1,9 @@
 import * as Sentry from "@sentry/nextjs";
-import { registerGracefulShutdownObserver } from "@/server/graceful-shutdown-observer";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { registerGracefulShutdownObserver } =
+      await import("@/server/graceful-shutdown-observer");
     registerGracefulShutdownObserver();
     await import("../sentry.server.config");
   }

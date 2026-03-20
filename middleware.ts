@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 const DELIVERY_PATH_COOKIE = "delivery_path";
 const ENABLE_FRONTEND_ACCESS_LOGS = process.env.ENABLE_FRONTEND_ACCESS_LOGS === "true";
+const HEALTH_CHECK_PATH = "/health";
 
 function resolveDeliveryPath(req: NextRequest) {
   const via = req.headers.get("via") ?? "";
@@ -24,6 +25,13 @@ function logFrontendRequest(req: NextRequest, deliveryPath: string) {
 }
 
 export function middleware(req: NextRequest) {
+  if (req.nextUrl.pathname === HEALTH_CHECK_PATH) {
+    return NextResponse.json(
+      { status: "ok", timestamp: new Date().toISOString(), source: "middleware" },
+      { status: 200 },
+    );
+  }
+
   const deliveryPath = resolveDeliveryPath(req);
   const res = NextResponse.next();
 
