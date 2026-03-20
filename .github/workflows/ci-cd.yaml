@@ -438,7 +438,7 @@ jobs:
           AWSLOGS_GROUP=/doktori/frontend
           AWSLOGS_STREAM_PREFIX=frontend-prod
           AWSLOGS_CREATE_GROUP=false
-          HEALTH_CHECK_PATH=/
+          HEALTH_CHECK_PATH=/health
           TARGET_GROUP_ARN=${{ secrets.FRONTEND_PROD_TARGET_GROUP_ARN }}
           EOF
 
