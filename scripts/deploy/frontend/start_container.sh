@@ -10,6 +10,8 @@ load_deploy_env
 require_env_vars ECR_REGISTRY ECR_REPOSITORY IMAGE_TAG AWS_REGION AWSLOGS_GROUP AWSLOGS_STREAM_PREFIX
 
 IMAGE_URI="$(get_image_uri)"
+INSTANCE_ID="$(instance_id)"
+AWSLOGS_STREAM="${AWSLOGS_STREAM_PREFIX}/${INSTANCE_ID}/${CONTAINER_NAME}"
 
 log "starting container $CONTAINER_NAME from $IMAGE_URI"
 docker run -d \
@@ -20,7 +22,7 @@ docker run -d \
   --log-driver awslogs \
   --log-opt awslogs-region="$AWS_REGION" \
   --log-opt awslogs-group="$AWSLOGS_GROUP" \
-  --log-opt awslogs-stream-prefix="$AWSLOGS_STREAM_PREFIX" \
+  --log-opt awslogs-stream="$AWSLOGS_STREAM" \
   --log-opt awslogs-create-group="$AWSLOGS_CREATE_GROUP" \
   -p "${HOST_PORT}:${CONTAINER_PORT}" \
   "$IMAGE_URI"
