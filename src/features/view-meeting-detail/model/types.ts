@@ -29,10 +29,11 @@ export type GetMeetingDetailResponse = {
       endTime: string;
     };
     leader: {
-      userId: number;
       nickname: string;
       profileImagePath: string;
       intro: string;
+      averageRating: number;
+      leaderMeetingCount: number;
     };
   };
   rounds: MeetingRoundInfo[];

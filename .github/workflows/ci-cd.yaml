@@ -434,6 +434,10 @@ jobs:
           CONTAINER_NAME=doktori-frontend
           HOST_PORT=3000
           CONTAINER_PORT=3000
+          CONTAINER_STOP_TIMEOUT_SECONDS=30
+          AWSLOGS_GROUP=/doktori/frontend
+          AWSLOGS_STREAM_PREFIX=frontend-prod
+          AWSLOGS_CREATE_GROUP=false
           HEALTH_CHECK_PATH=/
           TARGET_GROUP_ARN=${{ secrets.FRONTEND_PROD_TARGET_GROUP_ARN }}
           EOF

@@ -138,6 +138,8 @@ export default function MeetingDetail({
           description={meeting.description}
           leaderNickname={meeting.leader.nickname}
           leaderIntro={meeting.leader.intro}
+          leaderRating={meeting.leader.averageRating}
+          leaderMeetingCount={meeting.leader.leaderMeetingCount}
           leaderProfileImagePath={meeting.leader.profileImagePath}
           reviewSection={
             initialReviewPreview ? (
