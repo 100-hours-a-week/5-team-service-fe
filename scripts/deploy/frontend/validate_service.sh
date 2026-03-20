@@ -26,6 +26,23 @@ capture_container_status() {
   printf 'container=%s status=not-found\n' "$CONTAINER_NAME"
 }
 
+log_container_diagnostics() {
+  log "container diagnostics for $CONTAINER_NAME"
+
+  if ! docker ps -a --format '{{.Names}}' | grep -Fxq "$CONTAINER_NAME"; then
+    log "container $CONTAINER_NAME not found"
+    return 0
+  fi
+
+  log "docker inspect summary:"
+  docker inspect "$CONTAINER_NAME" \
+    --format 'name={{.Name}} status={{.State.Status}} running={{.State.Running}} exit_code={{.State.ExitCode}} error={{.State.Error}} started_at={{.State.StartedAt}} finished_at={{.State.FinishedAt}} oom_killed={{.State.OOMKilled}} restart_count={{.RestartCount}}' \
+    || true
+
+  log "recent container logs (tail 200):"
+  docker logs --tail 200 "$CONTAINER_NAME" 2>&1 || true
+}
+
 attempt=1
 while [ "$attempt" -le "$LOCAL_HEALTH_MAX_ATTEMPTS" ]; do
   HTTP_STATUS="$(
@@ -46,6 +63,7 @@ while [ "$attempt" -le "$LOCAL_HEALTH_MAX_ATTEMPTS" ]; do
   CONTAINER_STATUS="$(capture_container_status)"
 
   if [ "$attempt" -eq "$LOCAL_HEALTH_MAX_ATTEMPTS" ]; then
+    log_container_diagnostics
     fail "local health check failed after ${LOCAL_HEALTH_MAX_ATTEMPTS} attempts: url=$LOCAL_HEALTH_URL status=${HTTP_STATUS:-curl-error} response=${RESPONSE_BODY:-<empty>} $CONTAINER_STATUS"
   fi
 
