@@ -1,4 +1,5 @@
 import postBehaviorLog from "../api/postBehaviorLog";
+import { authStore, useAuthStore } from "@/shared/store/authStore";
 import type {
   BehaviorLogCounter,
   BehaviorLogCounterMap,
@@ -13,6 +14,7 @@ const PENDING_QUEUE_KEY = "behaviorLog:pendingQueue";
 let countersCache: BehaviorLogCounterMap | null = null;
 let queueCache: BehaviorLogRequest[] | null = null;
 let flushPromise: Promise<void> | null = null;
+let disabledAccessToken: string | null = null;
 
 function isBrowser() {
   return typeof window !== "undefined";
@@ -37,6 +39,42 @@ function storageSet<T>(key: string, value: T) {
 function storageRemove(key: string) {
   if (!isBrowser()) return;
   localStorage.removeItem(key);
+}
+
+function clearCounters() {
+  countersCache = {};
+  storageRemove(COUNTERS_KEY);
+}
+
+function clearQueue() {
+  queueCache = [];
+  storageRemove(PENDING_QUEUE_KEY);
+}
+
+function clearStoredBehaviorLogs() {
+  clearCounters();
+  clearQueue();
+}
+
+function isAuthInitialized() {
+  return useAuthStore.getState().initialized;
+}
+
+function canHandleBehaviorLogs() {
+  if (!isAuthInitialized()) return false;
+
+  const accessToken = authStore.getAccessToken();
+  if (!accessToken) return false;
+
+  return disabledAccessToken !== accessToken;
+}
+
+function disableBehaviorLogsForCurrentToken() {
+  const accessToken = authStore.getAccessToken();
+  if (accessToken) {
+    disabledAccessToken = accessToken;
+  }
+  clearStoredBehaviorLogs();
 }
 
 function createSessionId() {
@@ -163,7 +201,7 @@ function updateCounter(
   meetingId: number,
   updater: (previous: BehaviorLogCounter) => BehaviorLogCounter,
 ) {
-  if (!isBrowser()) return;
+  if (!isBrowser() || !canHandleBehaviorLogs()) return;
 
   const normalizedMeetingId = normalizeMeetingId(meetingId);
   if (!normalizedMeetingId) return;
@@ -247,7 +285,11 @@ async function flushPendingQueue({ keepalive = false }: { keepalive?: boolean } 
       queue.shift();
       sentCount += 1;
       if (keepalive) break;
-    } catch {
+    } catch (error) {
+      const apiError = error as { code?: string; status?: number };
+      if (apiError.status === 401) {
+        disableBehaviorLogsForCurrentToken();
+      }
       break;
     }
   }
@@ -263,6 +305,11 @@ type FlushBehaviorLogsOptions = {
 
 export async function flushBehaviorLogs(options: FlushBehaviorLogsOptions = {}) {
   if (!isBrowser()) return;
+  if (!isAuthInitialized()) return;
+  if (!canHandleBehaviorLogs()) {
+    clearStoredBehaviorLogs();
+    return;
+  }
   if (flushPromise) return flushPromise;
 
   flushPromise = (async () => {
