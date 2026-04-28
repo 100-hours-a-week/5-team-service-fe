@@ -51,55 +51,27 @@ jobs:
         id: meta
         run: |
           REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          PROD_REPOSITORY="${{ secrets.ECR_REPOSITORY_PROD }}"
-          NONPROD_REPOSITORY="doktori/frontend"
+          REPOSITORY="doktori/frontend"
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          ARCH="arm64"
           if [ "${{ github.event_name }}" == "pull_request" ] && \
              [ "${{ github.event.pull_request.merged }}" == "true" ] && \
              [ "${{ github.event.pull_request.base.ref }}" == "staging" ]; then
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            REPOSITORY="$NONPROD_REPOSITORY"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
-              echo "${REGISTRY}/${REPOSITORY}:staging"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" == "refs/heads/develop" ] || \
-               ( [ "${{ github.event_name }}" == "pull_request" ] && \
-                 [ "${{ github.event.pull_request.merged }}" == "true" ] && \
-                 [ "${{ github.event.pull_request.base.ref }}" == "develop" ] ); then
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            REPOSITORY="$NONPROD_REPOSITORY"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
-              echo "${REGISTRY}/${REPOSITORY}:develop-${ARCH}"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
+            TAG="dev-staging"
+          elif [ "${{ github.ref }}" == "refs/heads/develop" ]; then
+            TAG="dev-develop"
           elif [ "${{ github.ref }}" == "refs/heads/main" ] || \
                ( [ "${{ github.event_name }}" == "pull_request" ] && \
                  [ "${{ github.event.pull_request.merged }}" == "true" ] && \
                  [ "${{ github.event.pull_request.base.ref }}" == "main" ] ); then
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            REPOSITORY="$PROD_REPOSITORY"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
-              echo "${REGISTRY}/${REPOSITORY}:latest-${ARCH}"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
+            TAG="prod-${SHORT_SHA}"
           else
-            TAG="sha-${SHORT_SHA}-${ARCH}"
-            REPOSITORY="$NONPROD_REPOSITORY"
-            {
-              echo "tags<<EOF"
-              echo "${REGISTRY}/${REPOSITORY}:${TAG}"
-              echo "${REGISTRY}/${REPOSITORY}:latest-${ARCH}"
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
+            TAG="dev-${SHORT_SHA}"
           fi
+          {
+            echo "tags<<EOF"
+            echo "${REGISTRY}/${REPOSITORY}:${TAG}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
           echo "image-tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
@@ -175,12 +147,7 @@ jobs:
 
   deploy-dev:
     needs: build-and-push-arm64
-    if: |
-      (github.event_name == 'push' &&
-       github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'pull_request' &&
-       github.event.pull_request.merged == true &&
-       github.event.pull_request.base.ref == 'develop')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -202,14 +169,15 @@ jobs:
             "mkdir -p $DOCKER_CONFIG",
             "aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY",
             "docker pull $IMAGE_URI",
-            "docker tag $IMAGE_URI $ECR_REGISTRY/doktori/frontend:develop",
-            "if docker compose version >/dev/null 2>&1; then docker compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; else docker-compose -f /home/ubuntu/app/docker-compose.yml up -d --no-deps frontend; fi",
+            "docker rm -f doktori-frontend 2>/dev/null || true",
+            "docker run -d --name doktori-frontend --restart unless-stopped -p 3000:3000 $IMAGE_URI",
+            "docker ps --filter name=doktori-frontend --format \"table {{.Names}}\\t{{.Status}}\\t{{.Ports}}\"",
             "docker image prune -f"
           ]')
 
           CMD_ID=$(aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --instance-ids "i-0268f9cd8322a1cfa" \
+            --targets "Key=tag:Environment,Values=dev" "Key=tag:Service,Values=front" \
             --parameters "{\"commands\": $COMMANDS}" \
             --timeout-seconds 300 \
             --comment "deploy dev frontend ${{ github.sha }}" \
@@ -231,6 +199,11 @@ jobs:
                 aws ssm list-command-invocations --command-id "$CMD_ID" --details \
                   --query "CommandInvocations[0].CommandPlugins[0].Output" --output text || true
                 exit 1 ;;
+              None)
+                if [ "$i" -ge 3 ]; then
+                  echo "::error::No instance matched SSM target Environment=dev,Service=front"
+                  exit 1
+                fi ;;
             esac
           done
           echo "::error::SSM command timed out"
@@ -301,7 +274,7 @@ jobs:
 
           APP_INSTANCE_ID="i-0d7fa2ecbb9d580ac"
           ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
-          IMAGE_URI="${ECR_REGISTRY}/doktori/frontend:staging"
+          IMAGE_URI="${ECR_REGISTRY}/doktori/frontend:${{ needs.build-and-push-arm64.outputs.image-tag }}"
 
           COMMANDS=$(jq -n --arg registry "$ECR_REGISTRY" --arg image "$IMAGE_URI" '[
             "set -e",
@@ -429,7 +402,7 @@ jobs:
           cat > codedeploy-bundle/scripts/deploy/frontend/deploy.env <<EOF
           AWS_REGION=ap-northeast-2
           ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}
-          ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY_PROD }}
+          ECR_REPOSITORY=doktori/frontend
           IMAGE_TAG=${{ needs.build-and-push-arm64.outputs.image-tag }}
           CONTAINER_NAME=doktori-frontend
           HOST_PORT=3000
@@ -518,7 +491,7 @@ jobs:
       - name: Sync .next/static to S3
         env:
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_PROD }}
+          ECR_REPOSITORY: doktori/frontend
           IMAGE_TAG: ${{ needs.build-and-push-arm64.outputs.image-tag }}
           STATIC_BUCKET_NAME: ${{ secrets.STATIC_BUCKET_NAME_PROD }}
         run: |
